@@ -1,6 +1,6 @@
-use std::env::var;
 use num_traits::{One, Zero};
 use rand::prelude::*;
+use std::env::var;
 
 use QmcSSE::qmc::{GenericQMC, MatrixTermData};
 use QmcSSE::traits::diagonal_update::DiagonalUpdate;
@@ -9,9 +9,8 @@ use QmcSSE::traits::graph_weights::GraphWeight;
 use QmcSSE::traits::naive_flip_update::NaiveFlipUpdater;
 
 fn main() {
-    let mut qmc = GenericQMC::<bool,RingExchangeData<f64>>::new_with_state(vec![
-        false, false, false
-    ]);
+    let mut qmc =
+        GenericQMC::<bool, RingExchangeData<f64>>::new_with_state(vec![false, false, false]);
 
     let term = RingExchangeData::<f64> {
         scale: 1.0,
@@ -30,7 +29,7 @@ fn main() {
     for i in 0..thermalization_steps {
         qmc.maintain_maximum_filling_fraction(0.75, 16);
         qmc.diagonal_update(beta, &mut rng);
-        for j in 0 .. qmc.get_n_dof() {
+        for j in 0..qmc.get_n_dof() {
             qmc.naive_flip_update(&mut rng);
         }
     }
@@ -45,7 +44,7 @@ fn main() {
         for _ in 0..autocorr_time {
             qmc.maintain_maximum_filling_fraction(0.75, 16);
             qmc.diagonal_update(beta, &mut rng);
-            for _ in 0 .. qmc.get_n_dof() {
+            for _ in 0..qmc.get_n_dof() {
                 qmc.naive_flip_update(&mut rng);
             }
         }
@@ -54,22 +53,34 @@ fn main() {
     }
     qmc.print_worldlines();
 
-    let energies = num_operators.into_iter().map(|x| x as f64 / beta).collect::<Vec<_>>();
+    let energies = num_operators
+        .into_iter()
+        .map(|x| x as f64 / beta)
+        .collect::<Vec<_>>();
     let avg_energy = energies.iter().sum::<f64>() / (samples as f64);
     let variance = energies.iter().map(|x| x.powi(2)).sum::<f64>() / (samples as f64);
-    println!("Avg: {:.3} +/- {:.3}", avg_energy, variance.sqrt() / (samples as f64).sqrt());
+    println!(
+        "Avg: {:.3} +/- {:.3}",
+        avg_energy,
+        variance.sqrt() / (samples as f64).sqrt()
+    );
 }
 
-
 #[derive(Clone)]
-struct RingExchangeData<T> where T: Clone {
+struct RingExchangeData<T>
+where
+    T: Clone,
+{
     scale: T,
     exchangeable_state_a: usize,
     exchangeable_state_b: usize,
-    dim: usize
+    dim: usize,
 }
 
-impl<T> MatrixTermData<T> for RingExchangeData<T> where T: Zero + One + Clone + PartialEq {
+impl<T> MatrixTermData<T> for RingExchangeData<T>
+where
+    T: Zero + One + Clone + PartialEq,
+{
     fn get_matrix_entry(&self, input: usize, output: usize) -> T {
         if input == output {
             self.scale.clone()
@@ -86,39 +97,44 @@ impl<T> MatrixTermData<T> for RingExchangeData<T> where T: Zero + One + Clone + 
         true
     }
 
-    fn get_number_of_equal_weight_outputs_for_input(&self, input: usize) -> usize {
-        if input == self.exchangeable_state_a || input == self.exchangeable_state_b {
-            2
-        } else {
-            1
-        }
-    }
-
-    fn get_nth_equal_weight_output_for_input(&self, input: usize, n: usize) -> usize {
-        let mut outputs = [input,0];
-        if input == self.exchangeable_state_a {
-            outputs[1] = self.exchangeable_state_b;
-        } else if input == self.exchangeable_state_b {
-            outputs[1] = self.exchangeable_state_a;
-        }
-        outputs[n]
-    }
-
     fn dim(&self) -> usize {
         self.dim
     }
 
-    fn get_weight_change_for_diagonal(&self, _old_state: usize, _new_state: usize) -> Option<(T, T)> {
+    fn get_weight_change_for_diagonal(
+        &self,
+        _old_state: usize,
+        _new_state: usize,
+    ) -> Option<(T, T)> {
         None
     }
 
-    fn get_weight_change_for_inputs_given_output(&self, input_a: usize, input_b: usize, output: usize) -> Option<(T, T)> {
+    fn get_weight_change_for_inputs_given_output(
+        &self,
+        input_a: usize,
+        input_b: usize,
+        output: usize,
+    ) -> Option<(T, T)> {
         let wa = self.get_matrix_entry(input_a, output);
         let wb = self.get_matrix_entry(input_b, output);
-        if wa == wb {
-            None
+        if wa == wb { None } else { Some((wa, wb)) }
+    }
+
+    fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(&self, input: usize, output: usize) -> usize {
+        if input == self.exchangeable_state_a || input == self.exchangeable_state_b {
+            1
         } else {
-            Some((wa, wb))
+            0
+        }
+    }
+
+    fn get_nth_equal_weight_output_for_input_distinct_from_output(&self, input: usize, output: usize, n: usize) -> usize {
+        debug_assert_eq!(n, 0);
+        debug_assert!(input == self.exchangeable_state_a || input == self.exchangeable_state_b);
+        if output == self.exchangeable_state_a {
+            self.exchangeable_state_b
+        } else {
+            self.exchangeable_state_a
         }
     }
 }

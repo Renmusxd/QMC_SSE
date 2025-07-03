@@ -28,9 +28,9 @@ pub trait GraphWeight: GraphStateNavigator {
         self.get_matrix_element_from_term(term, input_state, output_state)
     }
     fn get_total_graph_weight_from_nodes(&self) -> f64 {
-        self.iterate_over_all_nodes().map(|node| {
-            self.get_matrix_element_from_node(node)
-        }).product()
+        self.iterate_over_all_nodes()
+            .map(|node| self.get_matrix_element_from_node(node))
+            .product()
     }
 }
 

@@ -67,7 +67,7 @@ pub trait GraphStateNavigator {
         k
     }
 
-    fn iterate_over_all_nodes(&self) -> impl Iterator<Item=&Self::Node>;
+    fn iterate_over_all_nodes(&self) -> impl Iterator<Item = &Self::Node>;
 }
 
 pub trait GraphNode {

@@ -1,5 +1,5 @@
-use std::env::var;
 use rand::prelude::*;
+use std::env::var;
 
 use QmcSSE::qmc::{GenericMatrixTerm, GenericMatrixTermEnum, GenericQMC};
 use QmcSSE::traits::diagonal_update::DiagonalUpdate;
@@ -46,8 +46,15 @@ fn main() {
     }
     qmc.print_worldlines();
 
-    let energies = num_operators.into_iter().map(|x| x as f64 / beta).collect::<Vec<_>>();
+    let energies = num_operators
+        .into_iter()
+        .map(|x| x as f64 / beta)
+        .collect::<Vec<_>>();
     let avg_energy = energies.iter().sum::<f64>() / (samples as f64);
     let variance = energies.iter().map(|x| x.powi(2)).sum::<f64>() / (samples as f64);
-    println!("Avg: {:.3} +/- {:.3}", avg_energy, variance.sqrt() / (samples as f64).sqrt());
+    println!(
+        "Avg: {:.3} +/- {:.3}",
+        avg_energy,
+        variance.sqrt() / (samples as f64).sqrt()
+    );
 }

@@ -1,7 +1,7 @@
 use crate::traits::graph_traits::{DOFTypeTrait, GraphNode, Link, TimeSlicedGraph};
+use crate::traits::naive_flip_update::NaiveFlipUpdater;
 use num_traits::{One, Zero};
 use std::cmp::max;
-use crate::traits::naive_flip_update::NaiveFlipUpdater;
 
 mod diagonal_impl;
 mod graph_mod_impl;
@@ -34,7 +34,7 @@ pub struct GenericQMC<
     total_maybe_flippable: usize,
 }
 
-impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF,TermData> {
+impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData> {
     pub fn new(num_dofs: usize) -> Self {
         let state = (0..num_dofs).map(|_| DOF::default()).collect();
         Self::new_with_state(state)
@@ -69,11 +69,7 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF,TermData> 
         debug_assert!(self.check_consistency());
     }
 
-    pub fn add_term(
-        &mut self,
-        data: TermData,
-        act_on_indices: Vec<usize>,
-    ) -> MatrixTermHandle {
+    pub fn add_term(&mut self, data: TermData, act_on_indices: Vec<usize>) -> MatrixTermHandle {
         debug_assert_eq!(
             data.dim(),
             DOF::local_dimension().pow(act_on_indices.len() as u32)
@@ -133,37 +129,85 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF,TermData> 
 
     pub fn check_node_consistency(&self, timeslice: usize, node: &DoublyLinkedNode<DOF>) -> bool {
         // First check the links for each dof.
-        for (rel_index, global_index) in node.represents_term.act_on_indices.iter().copied().enumerate() {
+        for (rel_index, global_index) in node
+            .represents_term
+            .act_on_indices
+            .iter()
+            .copied()
+            .enumerate()
+        {
             let previous_node = node.previous_node_index_for_variable[rel_index].as_ref();
             let link_to_this_node = match previous_node {
-                None =>  self.first_nodes_for_dofs[global_index].as_ref().expect("Head must point to this node."),
+                None => self.first_nodes_for_dofs[global_index]
+                    .as_ref()
+                    .expect("Head must point to this node."),
                 Some(link_to_previous_node) => {
-                    assert!(link_to_previous_node.timeslice < timeslice, "Previous timeslice must be lower order.");
-                    let previous_node = self.time_slices[link_to_previous_node.timeslice].as_ref().expect("Link must point to existing node.");
-                    assert_eq!(previous_node.represents_term.act_on_indices[link_to_previous_node.relative_index], global_index, "Link must point to correct dof.");
-                    previous_node.next_node_index_for_variable[link_to_previous_node.relative_index].as_ref().expect("Link to next node must exist.")
+                    assert!(
+                        link_to_previous_node.timeslice < timeslice,
+                        "Previous timeslice must be lower order."
+                    );
+                    let previous_node = self.time_slices[link_to_previous_node.timeslice]
+                        .as_ref()
+                        .expect("Link must point to existing node.");
+                    assert_eq!(
+                        previous_node.represents_term.act_on_indices
+                            [link_to_previous_node.relative_index],
+                        global_index,
+                        "Link must point to correct dof."
+                    );
+                    previous_node.next_node_index_for_variable[link_to_previous_node.relative_index]
+                        .as_ref()
+                        .expect("Link to next node must exist.")
                 }
             };
-            assert_eq!(link_to_this_node.timeslice, timeslice, "Link must point to this timeslice.");
-            assert_eq!(link_to_this_node.relative_index, rel_index, "Link must point to this relative index.");
+            assert_eq!(
+                link_to_this_node.timeslice, timeslice,
+                "Link must point to this timeslice."
+            );
+            assert_eq!(
+                link_to_this_node.relative_index, rel_index,
+                "Link must point to this relative index."
+            );
 
             let next_node = node.next_node_index_for_variable[rel_index].as_ref();
             let link_to_this_node = match next_node {
-                None =>  self.last_nodes_for_dofs[global_index].as_ref().expect("Tail must point to this node."),
+                None => self.last_nodes_for_dofs[global_index]
+                    .as_ref()
+                    .expect("Tail must point to this node."),
                 Some(link_to_next_node) => {
-                    assert!(link_to_next_node.timeslice > timeslice, "Previous timeslice must be higher order.");
-                    let next_node = self.time_slices[link_to_next_node.timeslice].as_ref().expect("Link must point to existing node.");
-                    assert_eq!(next_node.represents_term.act_on_indices[link_to_next_node.relative_index], global_index, "Link must point to correct dof.");
-                    next_node.previous_node_index_for_variable[link_to_next_node.relative_index].as_ref().expect("Link to previous node must exist.")
+                    assert!(
+                        link_to_next_node.timeslice > timeslice,
+                        "Previous timeslice must be higher order."
+                    );
+                    let next_node = self.time_slices[link_to_next_node.timeslice]
+                        .as_ref()
+                        .expect("Link must point to existing node.");
+                    assert_eq!(
+                        next_node.represents_term.act_on_indices[link_to_next_node.relative_index],
+                        global_index,
+                        "Link must point to correct dof."
+                    );
+                    next_node.previous_node_index_for_variable[link_to_next_node.relative_index]
+                        .as_ref()
+                        .expect("Link to previous node must exist.")
                 }
             };
-            assert_eq!(link_to_this_node.timeslice, timeslice, "Link must point to this timeslice.");
-            assert_eq!(link_to_this_node.relative_index, rel_index, "Link must point to this relative index.");
+            assert_eq!(
+                link_to_this_node.timeslice, timeslice,
+                "Link must point to this timeslice."
+            );
+            assert_eq!(
+                link_to_this_node.relative_index, rel_index,
+                "Link must point to this relative index."
+            );
         }
 
         // Now check the bookkeeping
         let list_node_should_be_in = &self.list_of_nodes[node.represents_term.matrix_data_entry];
-        assert_eq!(list_node_should_be_in[node.index_of_entry_in_node_list_for_term], timeslice);
+        assert_eq!(
+            list_node_should_be_in[node.index_of_entry_in_node_list_for_term],
+            timeslice
+        );
 
         true
     }
@@ -186,9 +230,13 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF,TermData> 
         assert_eq!(num_potentially_flippable, self.total_maybe_flippable);
 
         let num_nodes = self.list_of_nodes.iter().map(|x| x.len()).sum::<usize>();
-        let num_potentially_flippable = self.list_of_nodes.iter().map(|x| x.len()).zip(self.which_terms_are_maybe_flippable.iter()).filter_map(|(a, b)| {
-            if *b { Some(a) } else { None }
-        }).sum::<usize>();
+        let num_potentially_flippable = self
+            .list_of_nodes
+            .iter()
+            .map(|x| x.len())
+            .zip(self.which_terms_are_maybe_flippable.iter())
+            .filter_map(|(a, b)| if *b { Some(a) } else { None })
+            .sum::<usize>();
         assert_eq!(num_nodes, self.num_non_identity_terms);
         assert_eq!(num_potentially_flippable, self.total_maybe_flippable);
 
@@ -220,8 +268,6 @@ pub struct DoublyLinkedNode<DOF: DOFTypeTrait> {
 pub trait MatrixTermData<T> {
     fn get_matrix_entry(&self, input: usize, output: usize) -> T;
     fn is_maybe_flippable(&self) -> bool;
-    fn get_number_of_equal_weight_outputs_for_input(&self, input: usize) -> usize;
-    fn get_nth_equal_weight_output_for_input(&self, input: usize, n: usize) -> usize;
     fn dim(&self) -> usize;
     /// None means no change, Some((old, new)) implies there may be a change.
     fn get_weight_change_for_diagonal(&self, old_state: usize, new_state: usize) -> Option<(T, T)>;
@@ -232,6 +278,17 @@ pub trait MatrixTermData<T> {
         input_b: usize,
         output: usize,
     ) -> Option<(T, T)>;
+    fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
+        &self,
+        input: usize,
+        output: usize,
+    ) -> usize;
+    fn get_nth_equal_weight_output_for_input_distinct_from_output(
+        &self,
+        input: usize,
+        output: usize,
+        n: usize,
+    ) -> usize;
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -361,23 +418,43 @@ where
             _ => false,
         }
     }
-
-    fn get_number_of_equal_weight_outputs_for_input(&self, input: usize) -> usize {
+    fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
+        &self,
+        input: usize,
+        output: usize,
+    ) -> usize {
         match self {
-            GenericMatrixTermEnum::Uniform { dim, .. } => *dim,
+            GenericMatrixTermEnum::Uniform { dim, .. } => *dim - 1,
             GenericMatrixTermEnum::UniformSparse {
                 outputs_for_input, ..
-            } => outputs_for_input[input].len(),
-            _ => 1,
+            } => outputs_for_input[input].len() - 1,
+            _ => 0,
         }
     }
-
-    fn get_nth_equal_weight_output_for_input(&self, input: usize, n: usize) -> usize {
+    fn get_nth_equal_weight_output_for_input_distinct_from_output(
+        &self,
+        input: usize,
+        output: usize,
+        n: usize,
+    ) -> usize {
         match self {
-            GenericMatrixTermEnum::Uniform { .. } => n,
+            GenericMatrixTermEnum::Uniform { .. } => {
+                if n < output {
+                    n
+                } else {
+                    n + 1
+                }
+            }
             GenericMatrixTermEnum::UniformSparse {
                 outputs_for_input, ..
-            } => outputs_for_input[input][n],
+            } => {
+                let res = outputs_for_input[input][n];
+                if res < output {
+                    res
+                } else {
+                    outputs_for_input[input][n + 1]
+                }
+            }
             _ => input,
         }
     }

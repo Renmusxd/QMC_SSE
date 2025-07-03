@@ -10,8 +10,17 @@ where
     fn num_potential_flip_boundaries(&self) -> usize;
     fn get_potential_flip_boundary(&self, n: usize) -> Self::TimesliceIndex;
     fn is_node_potentially_flippable(&self, node: &Self::Node) -> bool;
-    fn get_nth_equal_weight_output_state(&self, node: &Self::Node, n: usize) -> Vec<Self::DOFType>;
-    fn get_number_of_equal_weight_flip_possibilities(&self, node: &Self::Node) -> usize;
+
+    /// Get the number of possible outputs (for fixed input) which are distinct from the current.
+    fn get_number_of_equal_weight_alternative_outputs(&self, node: &Self::Node) -> usize;
+
+    /// Get the number of possible outputs (for fixed input) which are distinct from the current.
+    fn get_nth_equal_weight_alternative_output(
+        &self,
+        node: &Self::Node,
+        n: usize,
+    ) -> Vec<Self::DOFType>;
+
     fn can_node_absorb_flip(
         &self,
         node: &Self::Node,
@@ -40,9 +49,10 @@ where
         let starting_node_number = rng.sample(rand::distr::Uniform::new(0, n).unwrap());
         let start_pos = self.get_potential_flip_boundary(starting_node_number);
         debug_assert_eq!(
-            self.get_node(&start_pos).map(|node| {
-                self.is_node_potentially_flippable(node)
-            }), Some(true), "Flip boundary term is not flippable."
+            self.get_node(&start_pos)
+                .map(|node| { self.is_node_potentially_flippable(node) }),
+            Some(true),
+            "Flip boundary term is not flippable."
         );
         self.naive_flip_update_starting_from_timeslice(start_pos, rng)
     }
@@ -56,7 +66,10 @@ where
     {
         // Only in debug.
         let weight_before_update = self.get_total_graph_weight_from_nodes();
-        debug_assert!(weight_before_update > f64::EPSILON, "Weight going into flip is zero");
+        debug_assert!(
+            weight_before_update > f64::EPSILON,
+            "Weight going into flip is zero"
+        );
 
         let node = self
             .get_node(&start_pos)
@@ -67,13 +80,13 @@ where
         let acting_on_dofs = node.get_indices().to_vec();
 
         // Get the trial output to flip to
-        let num_configs = self.get_number_of_equal_weight_flip_possibilities(node);
-        let flip_config_number = rng.sample(rand::distr::Uniform::new(0, num_configs).unwrap());
-        let flip_config = self.get_nth_equal_weight_output_state(node, flip_config_number);
-        if &flip_config == node.get_output_state() {
-            // Already in correct configuration.
+        let num_configs = self.get_number_of_equal_weight_alternative_outputs(node);
+        if num_configs == 0 {
             return;
         }
+        let flip_config_number = rng.sample(rand::distr::Uniform::new(0, num_configs).unwrap());
+        let flip_config = self.get_nth_equal_weight_alternative_output(node, flip_config_number);
+        debug_assert_ne!(&flip_config, node.get_output_state());
 
         // Start working our way down the nodes
         let next_nodes = self.get_next_nodes_for_node(node);
@@ -138,13 +151,22 @@ where
         );
 
         let weight_after_update = self.get_total_graph_weight_from_nodes();
-        debug_assert!(weight_after_update > f64::EPSILON, "Weight after flip is zero. Flip started at {:?} ended at {:?}", start_pos, end_flip_location);
+        debug_assert!(
+            weight_after_update > f64::EPSILON,
+            "Weight after flip is zero. Flip started at {:?} ended at {:?}",
+            start_pos,
+            end_flip_location
+        );
 
         let target = weight_change_on_flip.unwrap_or(1.0);
         debug_assert!(
             ((weight_after_update / weight_before_update) - target) < f64::EPSILON,
             "Weights changed in an unexpected way: \t {:.3} -> {:.3} vs expected {:.3}\tFlip started at {:?} ended at {:?}",
-            weight_before_update, weight_after_update, target, start_pos, end_flip_location
+            weight_before_update,
+            weight_after_update,
+            target,
+            start_pos,
+            end_flip_location
         )
     }
 }
@@ -168,7 +190,10 @@ where
         let node_at_timeslice = graph
             .get_node(&link.timeslice)
             .expect("Cannot have link pointing to empty timeslice.");
-        debug_assert_eq!(node_at_timeslice.get_indices()[link.relative_index], acting_on_dofs[rel_index]);
+        debug_assert_eq!(
+            node_at_timeslice.get_indices()[link.relative_index],
+            acting_on_dofs[rel_index]
+        );
 
         if graph.can_node_absorb_flip(
             node_at_timeslice,
@@ -217,12 +242,13 @@ where
                         false
                     }
                 })
-                .for_each(| link| {
-                    *link = graph
-                        .get_link_to_next_node_by_relative_dof(
-                            node_at_timeslice,
-                            link.as_ref().expect("Already checked that this was Some").relative_index,
-                        );
+                .for_each(|link| {
+                    *link = graph.get_link_to_next_node_by_relative_dof(
+                        node_at_timeslice,
+                        link.as_ref()
+                            .expect("Already checked that this was Some")
+                            .relative_index,
+                    );
                 });
         } else {
             // Cannot handle offdiagonal overlaps.

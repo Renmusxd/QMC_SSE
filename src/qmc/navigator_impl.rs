@@ -1,7 +1,7 @@
 use crate::qmc::{DoublyLinkedNode, GenericQMC, MatrixTermData};
 use crate::traits::graph_traits::{DOFTypeTrait, GraphNode, GraphStateNavigator};
 
-impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> GraphStateNavigator for GenericQMC<DOF,Data> {
+impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> GraphStateNavigator for GenericQMC<DOF, Data> {
     type Node = DoublyLinkedNode<DOF>;
     type DOFIndex = usize;
     type DOFType = DOF;
@@ -66,7 +66,7 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> GraphStateNavigator for Gener
             })
     }
 
-    fn iterate_over_all_nodes(&self) -> impl Iterator<Item=&Self::Node> {
+    fn iterate_over_all_nodes(&self) -> impl Iterator<Item = &Self::Node> {
         self.time_slices.iter().filter_map(|node| node.as_ref())
     }
 }

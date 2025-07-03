@@ -3,7 +3,7 @@ use crate::traits::graph_traits::{
     DOFTypeTrait, GraphContext, Link, LinkedGraphNode, TimeSlicedGraph,
 };
 
-impl<DOF: DOFTypeTrait,Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQMC<DOF,Data> {
+impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQMC<DOF, Data> {
     type TimesliceIndex = usize;
 
     fn num_time_slices(&self) -> usize {

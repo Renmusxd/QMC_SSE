@@ -2,13 +2,14 @@ use crate::qmc::{GenericQMC, MatrixTermData};
 use crate::traits::graph_traits::{DOFTypeTrait, GraphNode};
 use crate::traits::naive_flip_update::NaiveFlipUpdater;
 
-impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQMC<DOF,Data> {
+impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQMC<DOF, Data> {
     fn num_potential_flip_boundaries(&self) -> usize {
         self.total_maybe_flippable
     }
 
     fn get_potential_flip_boundary(&self, n: usize) -> Self::TimesliceIndex {
-        let res = self.which_terms_are_maybe_flippable
+        let res = self
+            .which_terms_are_maybe_flippable
             .iter()
             .copied()
             .zip(self.list_of_nodes.iter())
@@ -23,21 +24,8 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQ
             });
         match res {
             Err(x) => x,
-            Ok(_) => unreachable!("Reached end of fold without finding flip boundary.")
+            Ok(_) => unreachable!("Reached end of fold without finding flip boundary."),
         }
-    }
-
-    fn get_number_of_equal_weight_flip_possibilities(&self, node: &Self::Node) -> usize {
-        let term_data = &self.all_term_data[node.represents_term.matrix_data_entry];
-        let input = Self::DOFType::index_dimension_slice(&node.input_state);
-        term_data.get_number_of_equal_weight_outputs_for_input(input)
-    }
-
-    fn get_nth_equal_weight_output_state(&self, node: &Self::Node, n: usize) -> Vec<Self::DOFType> {
-        let term_data = &self.all_term_data[node.represents_term.matrix_data_entry];
-        let input = Self::DOFType::index_dimension_slice(&node.input_state);
-        let output = term_data.get_nth_equal_weight_output_for_input(input, n);
-        Self::DOFType::index_to_state(output, node.get_indices().len())
     }
 
     fn get_relative_weight_change_for_new_state(
@@ -77,6 +65,25 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQ
 
     fn is_node_potentially_flippable(&self, node: &Self::Node) -> bool {
         self.all_term_data[node.represents_term.matrix_data_entry].is_maybe_flippable()
+    }
+
+    fn get_number_of_equal_weight_alternative_outputs(&self, node: &Self::Node) -> usize {
+        let term_data = &self.all_term_data[node.represents_term.matrix_data_entry];
+        let input = Self::DOFType::index_dimension_slice(&node.input_state);
+        let output = Self::DOFType::index_dimension_slice(&node.output_state);
+        term_data.get_number_of_equal_weight_outputs_for_input_distinct_from_output(input, output)
+    }
+
+    fn get_nth_equal_weight_alternative_output(
+        &self,
+        node: &Self::Node,
+        n: usize,
+    ) -> Vec<Self::DOFType> {
+        let term_data = &self.all_term_data[node.represents_term.matrix_data_entry];
+        let input = Self::DOFType::index_dimension_slice(&node.input_state);
+        let output = Self::DOFType::index_dimension_slice(&node.output_state);
+        let new_output = term_data.get_nth_equal_weight_output_for_input_distinct_from_output(input, output, n);
+        Self::DOFType::index_to_state(new_output, node.get_indices().len())
     }
 }
 
@@ -295,7 +302,7 @@ mod test_naive_flip_implementation {
         let mut qmc = GenericQMC::<bool>::new(2);
         let flip_term = GenericMatrixTermEnum::make_uniform(1.0, 4);
 
-        assert_eq!(flip_term.get_number_of_equal_weight_outputs_for_input(0), 4);
+        assert_eq!(flip_term.get_number_of_equal_weight_outputs_for_input_distinct_from_output(0, 0), 3);
 
         let handle = qmc.add_term(flip_term, vec![0, 1]);
         let handle_ident = qmc.add_term(GenericMatrixTermEnum::make_identity(2), vec![0]);
@@ -345,7 +352,7 @@ mod test_naive_flip_implementation {
             vec![(0, 0), (1, 1), (2, 2), (3, 3), (0, 1), (1, 0)],
         );
 
-        assert_eq!(flip_term.get_number_of_equal_weight_outputs_for_input(0), 2);
+        assert_eq!(flip_term.get_number_of_equal_weight_outputs_for_input_distinct_from_output(0, 0), 1);
 
         let handle = qmc.add_term(flip_term, vec![0, 1]);
         let handle_ident = qmc.add_term(GenericMatrixTermEnum::make_identity(2), vec![0]);
@@ -392,7 +399,7 @@ mod test_naive_flip_implementation {
         let mut qmc = GenericQMC::<bool>::new(2);
         let flip_term = GenericMatrixTermEnum::make_uniform(1.0, 2);
 
-        assert_eq!(flip_term.get_number_of_equal_weight_outputs_for_input(0), 2);
+        assert_eq!(flip_term.get_number_of_equal_weight_outputs_for_input_distinct_from_output(0, 0), 1);
 
         let handle = qmc.add_term(flip_term, vec![0]);
         let handle_ident = qmc.add_term(GenericMatrixTermEnum::make_identity(2), vec![0]);
