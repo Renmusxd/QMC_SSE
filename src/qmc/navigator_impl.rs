@@ -1,6 +1,7 @@
-use crate::qmc::{DoublyLinkedNode, GenericQMC};
+use crate::qmc::{DoublyLinkedNode, GenericQMC, MatrixTermData};
 use crate::traits::graph_traits::{DOFTypeTrait, GraphNode, GraphStateNavigator};
-impl<DOF: DOFTypeTrait> GraphStateNavigator for GenericQMC<DOF> {
+
+impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> GraphStateNavigator for GenericQMC<DOF,Data> {
     type Node = DoublyLinkedNode<DOF>;
     type DOFIndex = usize;
     type DOFType = DOF;
@@ -63,6 +64,10 @@ impl<DOF: DOFTypeTrait> GraphStateNavigator for GenericQMC<DOF> {
                     .expect("Disagreement between prev_node array and time_slices");
                 (node, previous_index.relative_index)
             })
+    }
+
+    fn iterate_over_all_nodes(&self) -> impl Iterator<Item=&Self::Node> {
+        self.time_slices.iter().filter_map(|node| node.as_ref())
     }
 }
 

@@ -1,43 +1,43 @@
-use crate::qmc::GenericQMC;
-use crate::traits::graph_traits::DOFTypeTrait;
+use crate::qmc::{GenericQMC, MatrixTermData};
+use crate::traits::graph_traits::{DOFTypeTrait, GraphNode};
 use crate::traits::naive_flip_update::NaiveFlipUpdater;
 
-impl<DOF: DOFTypeTrait> NaiveFlipUpdater for GenericQMC<DOF> {
+impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQMC<DOF,Data> {
     fn num_potential_flip_boundaries(&self) -> usize {
         self.total_maybe_flippable
     }
 
     fn get_potential_flip_boundary(&self, n: usize) -> Self::TimesliceIndex {
-        self.which_terms_are_maybe_flippable
+        let res = self.which_terms_are_maybe_flippable
             .iter()
             .copied()
             .zip(self.list_of_nodes.iter())
             .filter(|(a, _)| *a)
             .map(|(_, b)| b)
-            .fold(n, |acc, nodes| {
+            .try_fold(n, |acc, nodes| {
                 if acc >= nodes.len() {
-                    acc - nodes.len()
+                    Ok(acc - nodes.len())
                 } else {
-                    return nodes[acc];
+                    Err(nodes[acc])
                 }
-            })
-    }
-
-    fn get_nth_equal_weight_output_state(&self, node: &Self::Node, n: usize) -> Vec<Self::DOFType> {
-        todo!()
+            });
+        match res {
+            Err(x) => x,
+            Ok(_) => unreachable!("Reached end of fold without finding flip boundary.")
+        }
     }
 
     fn get_number_of_equal_weight_flip_possibilities(&self, node: &Self::Node) -> usize {
-        todo!()
+        let term_data = &self.all_term_data[node.represents_term.matrix_data_entry];
+        let input = Self::DOFType::index_dimension_slice(&node.input_state);
+        term_data.get_number_of_equal_weight_outputs_for_input(input)
     }
 
-    fn can_node_absorb_flip(
-        &self,
-        node: &Self::Node,
-        new_input_state: &[Self::DOFType],
-        acts_on_dof: &[Self::DOFIndex],
-    ) -> bool {
-        todo!()
+    fn get_nth_equal_weight_output_state(&self, node: &Self::Node, n: usize) -> Vec<Self::DOFType> {
+        let term_data = &self.all_term_data[node.represents_term.matrix_data_entry];
+        let input = Self::DOFType::index_dimension_slice(&node.input_state);
+        let output = term_data.get_nth_equal_weight_output_for_input(input, n);
+        Self::DOFType::index_to_state(output, node.get_indices().len())
     }
 
     fn get_relative_weight_change_for_new_state(
@@ -45,6 +45,362 @@ impl<DOF: DOFTypeTrait> NaiveFlipUpdater for GenericQMC<DOF> {
         node: &Self::Node,
         new_state: &[Self::DOFType],
     ) -> Option<f64> {
-        todo!()
+        debug_assert!(node.is_diagonal());
+        let term_data = &self.all_term_data[node.represents_term.matrix_data_entry];
+        let old_state = Self::DOFType::index_dimension_slice(&node.input_state);
+        let new_state = Self::DOFType::index_dimension_slice(new_state);
+        term_data
+            .get_weight_change_for_diagonal(old_state, new_state)
+            .map(|(a, b)| b / a)
+    }
+
+    fn can_node_absorb_flip(
+        &self,
+        node: &Self::Node,
+        new_input_state: &[Self::DOFType],
+        _acts_on_dof: &[Self::DOFIndex],
+        originating_matrix_term: &Self::MatrixTerm,
+    ) -> bool {
+        if node.represents_term.matrix_data_entry != originating_matrix_term.matrix_data_entry {
+            // For efficiency, only consider like terms.
+            false
+        } else {
+            let old_input_state = Self::DOFType::index_dimension_slice(&node.input_state);
+            let new_input_state = Self::DOFType::index_dimension_slice(new_input_state);
+            let output = Self::DOFType::index_dimension_slice(&node.output_state);
+            let term_data = &self.all_term_data[node.represents_term.matrix_data_entry];
+            term_data
+                .get_weight_change_for_inputs_given_output(old_input_state, new_input_state, output)
+                .is_none()
+        }
+    }
+
+    fn is_node_potentially_flippable(&self, node: &Self::Node) -> bool {
+        self.all_term_data[node.represents_term.matrix_data_entry].is_maybe_flippable()
+    }
+}
+
+#[cfg(test)]
+mod test_naive_flip_implementation {
+    use super::*;
+    use crate::qmc::GenericMatrixTermEnum;
+    use crate::traits::graph_traits::{GraphStateNavigator, TimeSlicedGraph};
+
+    #[test]
+    fn test_simple_naive_flip() {
+        let mut qmc = GenericQMC::<bool>::new(1);
+        let handle = qmc.add_term(GenericMatrixTermEnum::make_uniform(1.0, 2), vec![0]);
+
+        qmc.add_node(0, handle);
+        qmc.add_node(1, handle);
+
+        assert_eq!(qmc.num_potential_flip_boundaries(), 2);
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        let node = qmc
+            .get_node(&1)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+
+        let mut rng = rand::rng();
+        qmc.naive_flip_update_starting_from_timeslice(0, &mut rng);
+
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(!node.is_diagonal());
+        let node = qmc
+            .get_node(&1)
+            .expect("Node was added, should not be removed.");
+        assert!(!node.is_diagonal());
+    }
+
+    #[test]
+    fn test_simple_naive_flip_single_operator() {
+        let mut qmc = GenericQMC::<bool>::new(1);
+        qmc.set_minimum_timeslices(16);
+        let handle = qmc.add_term(GenericMatrixTermEnum::make_uniform(1.0, 2), vec![0]);
+
+        qmc.add_node(0, handle);
+
+        assert_eq!(qmc.num_potential_flip_boundaries(), 1);
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        assert_eq!(node.input_state[0], false);
+        assert_eq!(node.output_state[0], false);
+
+        let mut rng = rand::rng();
+        qmc.naive_flip_update_starting_from_timeslice(0, &mut rng);
+
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        assert_eq!(node.input_state[0], true);
+        assert_eq!(node.output_state[0], true);
+    }
+
+    #[test]
+    fn test_naive_flip_pass_through() {
+        let mut qmc = GenericQMC::<bool>::new(1);
+        let handle = qmc.add_term(GenericMatrixTermEnum::make_uniform(1.0, 2), vec![0]);
+        let handle_ident = qmc.add_term(GenericMatrixTermEnum::make_identity(2), vec![0]);
+
+        qmc.add_node(0, handle);
+        qmc.add_node(1, handle_ident);
+        qmc.add_node(2, handle);
+
+        assert_eq!(qmc.num_potential_flip_boundaries(), 2);
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        let node = qmc
+            .get_node(&1)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        let node = qmc
+            .get_node(&2)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+
+        let mut rng = rand::rng();
+        qmc.naive_flip_update_starting_from_timeslice(0, &mut rng);
+
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(!node.is_diagonal());
+        let node = qmc
+            .get_node(&1)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        let node = qmc
+            .get_node(&2)
+            .expect("Node was added, should not be removed.");
+        assert!(!node.is_diagonal());
+    }
+
+    #[test]
+    fn test_simple_flip_wraparound() {
+        let mut qmc = GenericQMC::new_with_state(vec![false]);
+        let handle = qmc.add_term(GenericMatrixTermEnum::make_uniform(1.0, 2), vec![0]);
+
+        qmc.add_node(0, handle);
+        qmc.add_node(1, handle);
+
+        assert_eq!(qmc.num_potential_flip_boundaries(), 2);
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        let node = qmc
+            .get_node(&1)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        assert!(!qmc.get_initial_state()[0]);
+
+        let mut rng = rand::rng();
+        qmc.naive_flip_update_starting_from_timeslice(1, &mut rng);
+
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(!node.is_diagonal());
+        let node = qmc
+            .get_node(&1)
+            .expect("Node was added, should not be removed.");
+        assert!(!node.is_diagonal());
+        assert!(qmc.get_initial_state()[0]);
+    }
+
+    #[test]
+    fn test_flip_through_two_dof() {
+        let mut qmc = GenericQMC::<bool>::new(2);
+        let handle = qmc.add_term(GenericMatrixTermEnum::make_uniform(1.0, 2), vec![0]);
+        let handle_ident = qmc.add_term(GenericMatrixTermEnum::make_identity(4), vec![0, 1]);
+
+        qmc.add_node(0, handle);
+        qmc.add_node(1, handle_ident);
+        qmc.add_node(2, handle);
+
+        assert_eq!(qmc.num_potential_flip_boundaries(), 2);
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        let node = qmc
+            .get_node(&1)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        let node = qmc
+            .get_node(&2)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+
+        let mut rng = rand::rng();
+        qmc.naive_flip_update_starting_from_timeslice(0, &mut rng);
+
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(!node.is_diagonal());
+        let node = qmc
+            .get_node(&1)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        let node = qmc
+            .get_node(&2)
+            .expect("Node was added, should not be removed.");
+        assert!(!node.is_diagonal());
+    }
+
+    #[test]
+    fn test_flip_two_dof() {
+        let mut qmc = GenericQMC::<bool>::new(2);
+        let handle = qmc.add_term(GenericMatrixTermEnum::make_uniform(1.0, 4), vec![0, 1]);
+
+        qmc.add_node(0, handle);
+        qmc.add_node(1, handle);
+
+        assert_eq!(qmc.num_potential_flip_boundaries(), 2);
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        let node = qmc
+            .get_node(&1)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+
+        let mut rng = rand::rng();
+        qmc.naive_flip_update_starting_from_timeslice(0, &mut rng);
+
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(!node.is_diagonal());
+        let node = qmc
+            .get_node(&1)
+            .expect("Node was added, should not be removed.");
+        assert!(!node.is_diagonal());
+    }
+
+    #[test]
+    fn test_flip_two_dof_with_passthrough() {
+        let mut qmc = GenericQMC::<bool>::new(2);
+        let flip_term = GenericMatrixTermEnum::make_uniform(1.0, 4);
+
+        assert_eq!(flip_term.get_number_of_equal_weight_outputs_for_input(0), 4);
+
+        let handle = qmc.add_term(flip_term, vec![0, 1]);
+        let handle_ident = qmc.add_term(GenericMatrixTermEnum::make_identity(2), vec![0]);
+
+        qmc.add_node(0, handle);
+        qmc.add_node(1, handle_ident);
+        qmc.add_node(2, handle);
+
+        assert_eq!(qmc.num_potential_flip_boundaries(), 2);
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        let node = qmc
+            .get_node(&1)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        let node = qmc
+            .get_node(&2)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+
+        let mut rng = rand::rng();
+        qmc.naive_flip_update_starting_from_timeslice(0, &mut rng);
+
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(!node.is_diagonal());
+        let node = qmc
+            .get_node(&1)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        let node = qmc
+            .get_node(&2)
+            .expect("Node was added, should not be removed.");
+        assert!(!node.is_diagonal());
+    }
+
+    #[test]
+    fn test_sparse_uniform_flip() {
+        let mut qmc = GenericQMC::<bool>::new(2);
+
+        let flip_term = GenericMatrixTermEnum::make_sparse_uniform(
+            1.0,
+            4,
+            vec![(0, 0), (1, 1), (2, 2), (3, 3), (0, 1), (1, 0)],
+        );
+
+        assert_eq!(flip_term.get_number_of_equal_weight_outputs_for_input(0), 2);
+
+        let handle = qmc.add_term(flip_term, vec![0, 1]);
+        let handle_ident = qmc.add_term(GenericMatrixTermEnum::make_identity(2), vec![0]);
+
+        qmc.add_node(0, handle);
+        qmc.add_node(1, handle_ident);
+        qmc.add_node(2, handle);
+
+        assert_eq!(qmc.num_potential_flip_boundaries(), 2);
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        let node = qmc
+            .get_node(&1)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        let node = qmc
+            .get_node(&2)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+
+        let mut rng = rand::rng();
+        qmc.naive_flip_update_starting_from_timeslice(0, &mut rng);
+
+        let node = qmc
+            .get_node(&0)
+            .expect("Node was added, should not be removed.");
+        assert!(!node.is_diagonal());
+        assert_eq!(node.output_state, vec![true, false]);
+        let node = qmc
+            .get_node(&1)
+            .expect("Node was added, should not be removed.");
+        assert!(node.is_diagonal());
+        let node = qmc
+            .get_node(&2)
+            .expect("Node was added, should not be removed.");
+        assert!(!node.is_diagonal());
+        assert_eq!(node.input_state, vec![true, false]);
+    }
+
+    #[test]
+    fn test_flip_ends() {
+        let mut qmc = GenericQMC::<bool>::new(2);
+        let flip_term = GenericMatrixTermEnum::make_uniform(1.0, 2);
+
+        assert_eq!(flip_term.get_number_of_equal_weight_outputs_for_input(0), 2);
+
+        let handle = qmc.add_term(flip_term, vec![0]);
+        let handle_ident = qmc.add_term(GenericMatrixTermEnum::make_identity(2), vec![0]);
+
+        qmc.add_node(0, handle);
+        qmc.add_node(1, handle_ident);
+
+        let mut rng = rand::rng();
+        qmc.naive_flip_update_starting_from_timeslice(0, &mut rng);
     }
 }

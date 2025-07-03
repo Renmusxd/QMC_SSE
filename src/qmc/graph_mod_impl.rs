@@ -1,9 +1,9 @@
-use crate::qmc::{DoublyLinkedNode, GenericQMC};
+use crate::qmc::{DoublyLinkedNode, GenericQMC, MatrixTermData};
 use crate::traits::graph_traits::{
     DOFTypeTrait, GraphContext, Link, LinkedGraphNode, TimeSlicedGraph,
 };
 
-impl<DOF: DOFTypeTrait> TimeSlicedGraph for GenericQMC<DOF> {
+impl<DOF: DOFTypeTrait,Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQMC<DOF,Data> {
     type TimesliceIndex = usize;
 
     fn num_time_slices(&self) -> usize {
@@ -275,9 +275,11 @@ impl<DOF: DOFTypeTrait> TimeSlicedGraph for GenericQMC<DOF> {
 
         // Finally insert.
         self.time_slices[*timeslice] = Some(node);
-        self.time_slices[*timeslice]
+        let res = self.time_slices[*timeslice]
             .as_ref()
-            .expect("Node should really be here.")
+            .expect("Node should really be here.");
+        debug_assert!(self.check_node_consistency(*timeslice, res));
+        res
     }
 }
 

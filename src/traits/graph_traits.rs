@@ -7,6 +7,9 @@ pub trait GraphStateNavigator {
     type DOFType: DOFTypeTrait;
 
     fn get_initial_state(&self) -> &[Self::DOFType];
+    fn get_n_dof(&self) -> usize {
+        self.get_initial_state().len()
+    }
     fn get_initial_state_mut(&mut self) -> &mut [Self::DOFType];
     fn get_all_indices(&self) -> &[Self::DOFIndex];
     fn get_first_node_for_dof(&self, index: &Self::DOFIndex) -> Option<(&Self::Node, usize)>;
@@ -63,6 +66,8 @@ pub trait GraphStateNavigator {
         }
         k
     }
+
+    fn iterate_over_all_nodes(&self) -> impl Iterator<Item=&Self::Node>;
 }
 
 pub trait GraphNode {
@@ -83,12 +88,37 @@ pub trait GraphNode {
 
 pub trait DOFTypeTrait: Eq + PartialEq + Clone + Default + Debug {
     fn local_dimension() -> usize;
+
+    fn to_index(&self) -> usize;
+    fn from_index(index: usize) -> Self;
+
     fn iterate_through_values() -> impl Iterator<Item = Self>;
+
     fn index_dimension<It>(it: It) -> usize
     where
-        It: IntoIterator<Item = Self>;
+        It: IntoIterator<Item = Self>,
+    {
+        it.into_iter()
+            .fold((1, 0), |(mut mult, mut acc), v| {
+                acc += mult * v.to_index();
+                mult *= Self::local_dimension();
+                (mult, acc)
+            })
+            .1
+    }
+
     fn index_dimension_slice(dofs: &[Self]) -> usize {
         Self::index_dimension(dofs.iter().cloned())
+    }
+
+    fn index_to_state(mut dof_index: usize, n_dof: usize) -> Vec<Self> {
+        let d = Self::local_dimension();
+        let mut output = vec![Self::from_index(0); n_dof];
+        for i in 0..n_dof {
+            output[i] = Self::from_index(dof_index % d);
+            dof_index /= d;
+        }
+        output
     }
 }
 

@@ -1,17 +1,13 @@
-use crate::qmc::{GenericMatrixTerm, GenericQMC};
+use crate::qmc::{GenericMatrixTerm, GenericQMC, MatrixTermData};
 use crate::traits::graph_traits::DOFTypeTrait;
 use crate::traits::graph_weights::{GraphWeight, MatrixTermTrait};
 
-impl<DOF: DOFTypeTrait> GraphWeight for GenericQMC<DOF> {
+impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> GraphWeight for GenericQMC<DOF, Data> {
     type MatrixTerm = GenericMatrixTerm;
 
     fn get_possible_terms(&self) -> &[Self::MatrixTerm] {
         &self.all_terms
     }
-    fn get_matrix_term_for_node<'a>(&self, node: &'a Self::Node) -> &'a Self::MatrixTerm {
-        &node.represents_term
-    }
-
     fn get_matrix_element_from_term(
         &self,
         term: &Self::MatrixTerm,
@@ -23,6 +19,10 @@ impl<DOF: DOFTypeTrait> GraphWeight for GenericQMC<DOF> {
         let input_value = Self::DOFType::index_dimension_slice(input_state);
         let output_value = Self::DOFType::index_dimension_slice(output_state);
         term_data.get_matrix_entry(input_value, output_value)
+    }
+
+    fn get_matrix_term_for_node<'a>(&self, node: &'a Self::Node) -> &'a Self::MatrixTerm {
+        &node.represents_term
     }
 }
 

@@ -1,5 +1,7 @@
-use crate::traits::graph_traits::{DOFTypeTrait, Link, TimeSlicedGraph};
+use crate::traits::graph_traits::{DOFTypeTrait, GraphNode, Link, TimeSlicedGraph};
 use num_traits::{One, Zero};
+use std::cmp::max;
+use crate::traits::naive_flip_update::NaiveFlipUpdater;
 
 mod diagonal_impl;
 mod graph_mod_impl;
@@ -9,7 +11,10 @@ mod weight_impl;
 
 pub type MatrixTermHandle = usize;
 
-pub struct GenericQMC<DOF: DOFTypeTrait = bool> {
+pub struct GenericQMC<
+    DOF: DOFTypeTrait = bool,
+    TermData: MatrixTermData<f64> = GenericMatrixTermEnum<f64>,
+> {
     initial_state: Vec<DOF>,
     indices: Vec<usize>,
     time_slices: Vec<Option<DoublyLinkedNode<DOF>>>,
@@ -18,7 +23,7 @@ pub struct GenericQMC<DOF: DOFTypeTrait = bool> {
 
     // List of all terms in Hamiltonian
     all_terms: Vec<GenericMatrixTerm>,
-    all_term_data: Vec<GenericMatrixTermEnum<f64>>,
+    all_term_data: Vec<TermData>,
     which_terms_are_maybe_flippable: Vec<bool>,
 
     // Count of terms
@@ -29,13 +34,13 @@ pub struct GenericQMC<DOF: DOFTypeTrait = bool> {
     total_maybe_flippable: usize,
 }
 
-impl<DOF: DOFTypeTrait> GenericQMC<DOF> {
-    fn new(num_dofs: usize) -> Self {
+impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF,TermData> {
+    pub fn new(num_dofs: usize) -> Self {
         let state = (0..num_dofs).map(|_| DOF::default()).collect();
         Self::new_with_state(state)
     }
 
-    fn new_with_state(initial_state: Vec<DOF>) -> Self {
+    pub fn new_with_state(initial_state: Vec<DOF>) -> Self {
         let n = initial_state.len();
         Self {
             initial_state,
@@ -52,22 +57,28 @@ impl<DOF: DOFTypeTrait> GenericQMC<DOF> {
         }
     }
 
-    fn set_minimum_timeslices(&mut self, m: usize) {
+    pub fn set_minimum_timeslices(&mut self, m: usize) {
         if self.num_time_slices() < m {
             self.time_slices.resize_with(m, || None);
         }
     }
 
-    fn add_term<Data: Into<GenericMatrixTermEnum<f64>>>(
+    pub fn maintain_maximum_filling_fraction(&mut self, frac: f64, min_val: usize) {
+        let size_to_meet_quota = ((self.num_non_identity_terms as f64) / frac).ceil() as usize;
+        self.set_minimum_timeslices(max(size_to_meet_quota, min_val));
+        debug_assert!(self.check_consistency());
+    }
+
+    pub fn add_term(
         &mut self,
-        data: Data,
+        data: TermData,
         act_on_indices: Vec<usize>,
     ) -> MatrixTermHandle {
-        let data = data.into();
         debug_assert_eq!(
             data.dim(),
             DOF::local_dimension().pow(act_on_indices.len() as u32)
         );
+        let is_maybe_flippable = data.is_maybe_flippable();
 
         let matrix_data_entry = self.all_term_data.len();
         self.all_term_data.push(data);
@@ -77,10 +88,121 @@ impl<DOF: DOFTypeTrait> GenericQMC<DOF> {
         });
 
         // Add an entry for lists of nodes
-        self.which_terms_are_maybe_flippable.push(false); // TODO fix
+        self.which_terms_are_maybe_flippable
+            .push(is_maybe_flippable);
         self.list_of_nodes.push(vec![]);
 
         matrix_data_entry
+    }
+
+    fn add_node(&mut self, timeslice: usize, matrix_term_handle: MatrixTermHandle) {
+        let act_on_indices = self.all_terms[matrix_term_handle].act_on_indices.clone();
+        self.insert_node(&timeslice, &act_on_indices, |context| DoublyLinkedNode {
+            input_state: context.local_state.clone(),
+            output_state: context.local_state.clone(),
+            represents_term: GenericMatrixTerm {
+                act_on_indices: act_on_indices.clone(),
+                matrix_data_entry: matrix_term_handle,
+            },
+            previous_node_index_for_variable: context.prev_node_slice,
+            next_node_index_for_variable: context.next_node_slice,
+            index_of_entry_in_node_list_for_term: usize::MAX,
+        });
+    }
+
+    pub fn print_worldlines(&self) {
+        let mut worldline = vec!["|"; self.initial_state.len()];
+        for (t, slice) in self.time_slices.iter().enumerate() {
+            if let Some(node) = slice {
+                for i in &node.represents_term.act_on_indices {
+                    if node.is_diagonal() {
+                        worldline[*i] = "O";
+                    } else {
+                        worldline[*i] = "X";
+                    }
+                }
+                println!("{}:\t{}", t, worldline.join(""));
+                for i in &node.represents_term.act_on_indices {
+                    worldline[*i] = "|";
+                }
+            } else {
+                println!("{}:\t{}", t, worldline.join(""))
+            }
+        }
+    }
+
+    pub fn check_node_consistency(&self, timeslice: usize, node: &DoublyLinkedNode<DOF>) -> bool {
+        // First check the links for each dof.
+        for (rel_index, global_index) in node.represents_term.act_on_indices.iter().copied().enumerate() {
+            let previous_node = node.previous_node_index_for_variable[rel_index].as_ref();
+            let link_to_this_node = match previous_node {
+                None =>  self.first_nodes_for_dofs[global_index].as_ref().expect("Head must point to this node."),
+                Some(link_to_previous_node) => {
+                    assert!(link_to_previous_node.timeslice < timeslice, "Previous timeslice must be lower order.");
+                    let previous_node = self.time_slices[link_to_previous_node.timeslice].as_ref().expect("Link must point to existing node.");
+                    assert_eq!(previous_node.represents_term.act_on_indices[link_to_previous_node.relative_index], global_index, "Link must point to correct dof.");
+                    previous_node.next_node_index_for_variable[link_to_previous_node.relative_index].as_ref().expect("Link to next node must exist.")
+                }
+            };
+            assert_eq!(link_to_this_node.timeslice, timeslice, "Link must point to this timeslice.");
+            assert_eq!(link_to_this_node.relative_index, rel_index, "Link must point to this relative index.");
+
+            let next_node = node.next_node_index_for_variable[rel_index].as_ref();
+            let link_to_this_node = match next_node {
+                None =>  self.last_nodes_for_dofs[global_index].as_ref().expect("Tail must point to this node."),
+                Some(link_to_next_node) => {
+                    assert!(link_to_next_node.timeslice > timeslice, "Previous timeslice must be higher order.");
+                    let next_node = self.time_slices[link_to_next_node.timeslice].as_ref().expect("Link must point to existing node.");
+                    assert_eq!(next_node.represents_term.act_on_indices[link_to_next_node.relative_index], global_index, "Link must point to correct dof.");
+                    next_node.previous_node_index_for_variable[link_to_next_node.relative_index].as_ref().expect("Link to previous node must exist.")
+                }
+            };
+            assert_eq!(link_to_this_node.timeslice, timeslice, "Link must point to this timeslice.");
+            assert_eq!(link_to_this_node.relative_index, rel_index, "Link must point to this relative index.");
+        }
+
+        // Now check the bookkeeping
+        let list_node_should_be_in = &self.list_of_nodes[node.represents_term.matrix_data_entry];
+        assert_eq!(list_node_should_be_in[node.index_of_entry_in_node_list_for_term], timeslice);
+
+        true
+    }
+
+    pub fn check_consistency(&self) -> bool {
+        let mut num_nodes = 0;
+        let mut num_potentially_flippable = 0;
+        for (t, slice) in self.time_slices.iter().enumerate() {
+            if let Some(node) = slice {
+                self.check_node_consistency(t, node);
+
+                num_nodes += 1;
+                if self.is_node_potentially_flippable(node) {
+                    num_potentially_flippable += 1;
+                }
+            }
+        }
+
+        assert_eq!(num_nodes, self.num_non_identity_terms);
+        assert_eq!(num_potentially_flippable, self.total_maybe_flippable);
+
+        let num_nodes = self.list_of_nodes.iter().map(|x| x.len()).sum::<usize>();
+        let num_potentially_flippable = self.list_of_nodes.iter().map(|x| x.len()).zip(self.which_terms_are_maybe_flippable.iter()).filter_map(|(a, b)| {
+            if *b { Some(a) } else { None }
+        }).sum::<usize>();
+        assert_eq!(num_nodes, self.num_non_identity_terms);
+        assert_eq!(num_potentially_flippable, self.total_maybe_flippable);
+
+        // Now lets check that all the inputs/outputs align.
+        let mut state = self.initial_state.clone();
+        for node in self.time_slices.iter().filter_map(|slice| slice.as_ref()) {
+            for (rel, global) in node.represents_term.act_on_indices.iter().enumerate() {
+                assert_eq!(state[*global], node.input_state[rel]);
+                state[*global] = node.output_state[rel].clone();
+            }
+        }
+        assert_eq!(state, self.initial_state);
+
+        true
     }
 }
 
@@ -95,6 +217,23 @@ pub struct DoublyLinkedNode<DOF: DOFTypeTrait> {
     index_of_entry_in_node_list_for_term: usize,
 }
 
+pub trait MatrixTermData<T> {
+    fn get_matrix_entry(&self, input: usize, output: usize) -> T;
+    fn is_maybe_flippable(&self) -> bool;
+    fn get_number_of_equal_weight_outputs_for_input(&self, input: usize) -> usize;
+    fn get_nth_equal_weight_output_for_input(&self, input: usize, n: usize) -> usize;
+    fn dim(&self) -> usize;
+    /// None means no change, Some((old, new)) implies there may be a change.
+    fn get_weight_change_for_diagonal(&self, old_state: usize, new_state: usize) -> Option<(T, T)>;
+    /// For a fixed output, does changing the inputs result in a change to the matrix entry.
+    fn get_weight_change_for_inputs_given_output(
+        &self,
+        input_a: usize,
+        input_b: usize,
+        output: usize,
+    ) -> Option<(T, T)>;
+}
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct GenericMatrixTerm {
     act_on_indices: Vec<usize>,
@@ -102,18 +241,98 @@ pub struct GenericMatrixTerm {
 }
 
 pub enum GenericMatrixTermEnum<T> {
-    Identity { dim: usize },
-    Diagonal { data: Vec<T> },
-    Uniform { data: T, dim: usize },
-    UniformSparse { data: T, dim: usize, outputs_for_input: Vec<usize>, inputs_for_output: Vec<usize> },
-    Generic { data: Vec<T>, dim: usize },
+    Identity {
+        dim: usize,
+    },
+    Diagonal {
+        data: Vec<T>,
+    },
+    Uniform {
+        data: T,
+        dim: usize,
+    },
+    UniformSparse {
+        data: T,
+        dim: usize,
+        outputs_for_input: Vec<Vec<usize>>,
+        inputs_for_output: Vec<Vec<usize>>,
+    },
+    Generic {
+        data: Vec<T>,
+        dim: usize,
+    },
 }
 
 impl<T> GenericMatrixTermEnum<T>
 where
     T: One + Zero + Clone,
 {
-    pub fn get_matrix_entry(&self, input: usize, output: usize) -> T {
+    pub fn make_diagonal(data: Vec<T>) -> Self {
+        Self::Diagonal { data }
+    }
+
+    pub fn make_identity(dim: usize) -> Self {
+        Self::Identity { dim }
+    }
+    pub fn make_uniform(data: T, dim: usize) -> Self {
+        Self::Uniform { data, dim }
+    }
+
+    pub fn make_sparse_uniform(data: T, dim: usize, matrix_entries: Vec<(usize, usize)>) -> Self {
+        let mut inputs = matrix_entries
+            .iter()
+            .copied()
+            .map(|(a, _)| a)
+            .collect::<Vec<_>>();
+        inputs.dedup();
+        inputs.sort();
+
+        let mut outputs_for_input = Vec::new();
+        for input in inputs {
+            let mut o_for_i = matrix_entries
+                .iter()
+                .copied()
+                .filter(|(a, _)| input.eq(a))
+                .map(|(_, b)| b)
+                .collect::<Vec<_>>();
+            o_for_i.sort();
+            outputs_for_input.push(o_for_i);
+        }
+
+        let mut outputs = matrix_entries
+            .iter()
+            .copied()
+            .map(|(a, _)| a)
+            .collect::<Vec<_>>();
+        outputs.dedup();
+        outputs.sort();
+
+        let mut inputs_for_output = Vec::new();
+        for output in outputs {
+            let mut i_for_o = matrix_entries
+                .iter()
+                .copied()
+                .filter(|(_, b)| output.eq(b))
+                .map(|(a, _)| a)
+                .collect::<Vec<_>>();
+            i_for_o.sort();
+            inputs_for_output.push(i_for_o);
+        }
+
+        Self::UniformSparse {
+            data,
+            dim,
+            outputs_for_input,
+            inputs_for_output,
+        }
+    }
+}
+
+impl<T> MatrixTermData<T> for GenericMatrixTermEnum<T>
+where
+    T: Zero + One + Clone,
+{
+    fn get_matrix_entry(&self, input: usize, output: usize) -> T {
         match &self {
             Self::Identity { .. } if input == output => T::one(),
             Self::Identity { .. } => T::zero(),
@@ -121,22 +340,120 @@ where
             Self::Diagonal { .. } => T::zero(),
             Self::Uniform { data, .. } => data.clone(),
             Self::Generic { data, dim } => data[output * dim + input].clone(),
-            Self::UniformSparse { data, outputs_for_input, .. } => {
-                
+            Self::UniformSparse {
+                data,
+                outputs_for_input,
+                ..
+            } => {
+                if outputs_for_input[input].binary_search(&output).is_ok() {
+                    data.clone()
+                } else {
+                    T::zero()
+                }
             }
         }
     }
 
-    pub fn make_diagonal(data: Vec<T>) -> Self {
-        Self::Diagonal { data }
+    fn is_maybe_flippable(&self) -> bool {
+        match self {
+            GenericMatrixTermEnum::Uniform { .. } => true,
+            GenericMatrixTermEnum::UniformSparse { .. } => true,
+            _ => false,
+        }
     }
-    pub fn dim(&self) -> usize {
+
+    fn get_number_of_equal_weight_outputs_for_input(&self, input: usize) -> usize {
+        match self {
+            GenericMatrixTermEnum::Uniform { dim, .. } => *dim,
+            GenericMatrixTermEnum::UniformSparse {
+                outputs_for_input, ..
+            } => outputs_for_input[input].len(),
+            _ => 1,
+        }
+    }
+
+    fn get_nth_equal_weight_output_for_input(&self, input: usize, n: usize) -> usize {
+        match self {
+            GenericMatrixTermEnum::Uniform { .. } => n,
+            GenericMatrixTermEnum::UniformSparse {
+                outputs_for_input, ..
+            } => outputs_for_input[input][n],
+            _ => input,
+        }
+    }
+
+    fn dim(&self) -> usize {
         match self {
             Self::Identity { dim, .. } => *dim,
             Self::Diagonal { data } => data.len(),
             Self::Uniform { dim, .. } => *dim,
             Self::UniformSparse { dim, .. } => *dim,
             Self::Generic { dim, .. } => *dim,
+        }
+    }
+
+    /// None means no change, Some((old, new)) implies there may be a change.
+    fn get_weight_change_for_diagonal(&self, old_state: usize, new_state: usize) -> Option<(T, T)> {
+        match &self {
+            Self::Identity { .. } | Self::Uniform { .. } => None,
+            Self::Diagonal { data } => Some((data[old_state].clone(), data[new_state].clone())),
+            Self::Generic { data, dim } => {
+                let old_value = data[old_state * (dim + 1)].clone();
+                let new_value = data[new_state * (dim + 1)].clone();
+                Some((old_value, new_value))
+            }
+            Self::UniformSparse {
+                data,
+                outputs_for_input,
+                ..
+            } => {
+                let binary_old = outputs_for_input[old_state].binary_search(&old_state);
+                let binary_new = outputs_for_input[new_state].binary_search(&new_state);
+                match (binary_old, binary_new) {
+                    (Err(_), Err(_)) | (Ok(_), Ok(_)) => None,
+                    (Err(_), Ok(_)) => Some((T::zero(), data.clone())),
+                    (Ok(_), Err(_)) => Some((T::zero(), data.clone())),
+                }
+            }
+        }
+    }
+
+    /// For a fixed output, does changing the inputs result in a change to the matrix entry.
+    fn get_weight_change_for_inputs_given_output(
+        &self,
+        input_a: usize,
+        input_b: usize,
+        output: usize,
+    ) -> Option<(T, T)> {
+        if input_a == input_b {
+            return None;
+        }
+        match &self {
+            Self::Identity { .. } if input_a != output && input_b != output => None,
+            Self::Identity { .. } if input_a == output => Some((T::one(), T::zero())),
+            Self::Identity { .. } if input_b == output => Some((T::zero(), T::one())),
+            Self::Identity { .. } => None, // if input_a == input_b
+            Self::Uniform { .. } => None,
+            Self::Diagonal { .. } if input_a != output && input_b != output => None,
+            Self::Generic { .. } | Self::Diagonal { .. } => {
+                let ta = self.get_matrix_entry(input_a, input_b);
+                let tb = self.get_matrix_entry(input_a, input_b);
+                Some((ta, tb))
+            }
+            Self::UniformSparse {
+                data,
+                inputs_for_output,
+                ..
+            } => {
+                let inputs = &inputs_for_output[output];
+                let input_a_res = inputs.binary_search(&input_a);
+                let input_b_res = inputs.binary_search(&input_b);
+                match (input_a_res, input_b_res) {
+                    (Err(_), Err(_)) | (Ok(_), Ok(_)) => None,
+                    (Err(_), Ok(_)) => Some((T::zero(), data.clone())),
+                    (Ok(_), Err(_)) => Some((T::zero(), data.clone())),
+                }
+            }
         }
     }
 }

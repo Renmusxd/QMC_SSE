@@ -1,2 +1,2 @@
-mod qmc;
-mod traits;
+pub mod qmc;
+pub mod traits;

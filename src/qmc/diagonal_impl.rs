@@ -1,8 +1,8 @@
-use crate::qmc::{DoublyLinkedNode, GenericQMC};
+use crate::qmc::{DoublyLinkedNode, GenericQMC, MatrixTermData};
 use crate::traits::diagonal_update::DiagonalUpdate;
 use crate::traits::graph_traits::{DOFTypeTrait, GraphContext, Link};
 
-impl<DOF: DOFTypeTrait> DiagonalUpdate for GenericQMC<DOF> {
+impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> DiagonalUpdate for GenericQMC<DOF, Data> {
     fn get_number_of_time_slices(&self) -> usize {
         self.time_slices.len()
     }
@@ -12,7 +12,7 @@ impl<DOF: DOFTypeTrait> DiagonalUpdate for GenericQMC<DOF> {
     }
 
     fn construct_node(
-        timeslice: &Self::TimesliceIndex,
+        _timeslice: &Self::TimesliceIndex,
         context: GraphContext<Self::DOFType, Link<Self::TimesliceIndex>>,
         term: Self::MatrixTerm,
     ) -> Self::Node {
