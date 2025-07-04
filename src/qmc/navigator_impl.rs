@@ -87,13 +87,13 @@ impl<DOF: DOFTypeTrait> GraphNode for DoublyLinkedNode<DOF> {
         &self.output_state
     }
 
-    fn get_input_state_mut(&mut self) -> &mut [Self::DOFType] {
-        &mut self.input_state
-    }
-
-    fn get_output_state_mut(&mut self) -> &mut [Self::DOFType] {
-        &mut self.output_state
-    }
+    // fn get_input_state_mut(&mut self) -> &mut [Self::DOFType] {
+    //     &mut self.input_state
+    // }
+    //
+    // fn get_output_state_mut(&mut self) -> &mut [Self::DOFType] {
+    //     &mut self.output_state
+    // }
 
     fn get_relative_variable_index(&self, index: &Self::DOFIndex) -> Result<usize, ()> {
         self.get_indices()

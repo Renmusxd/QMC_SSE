@@ -144,6 +144,18 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQM
         node.next_node_index_for_variable.clone()
     }
 
+    fn modify_node_at_timeslice_input_and_output<F>(&mut self, timeslice: &Self::TimesliceIndex, f: F) -> Option<&Self::Node>
+    where
+        F: Fn(&mut [Self::DOFType], &mut [Self::DOFType])
+    {
+        if let Some(node) = self.time_slices[*timeslice].as_mut() {
+            let inputs = &mut node.input_state;
+            let outputs = &mut node.output_state;
+            f(inputs, outputs);
+        }
+        self.time_slices[*timeslice].as_ref()
+    }
+
     fn insert_node_with_hint<F>(
         &mut self,
         timeslice: &Self::TimesliceIndex,

@@ -268,14 +268,16 @@ fn edit_dof_from_starting_point<G>(
     G: NaiveFlipUpdater + ?Sized,
     G::Node: LinkedGraphNode,
 {
+    // TODO: do all DOF at same time to reduce calls to `modify_node_at_timeslice_input_and_output`
     // We do these one dof at a time.
     let it = acting_on_dofs.iter().zip(flip_config.iter()).enumerate();
     it.for_each(|(rel_index, (dof_index, dof_value))| {
-        let node_at_start = graph
-            .get_node_mut(start_at_and_edit_output_of)
-            .expect("Cannot be None");
+
+        // Modify the output.
+        let node_at_start = graph.modify_node_at_timeslice_input_and_output(start_at_and_edit_output_of, |_, output| {
+            output[rel_index] = dof_value.clone();
+        }).expect("Cannot be None");
         debug_assert_eq!(&node_at_start.get_indices()[rel_index], dof_index);
-        node_at_start.get_output_state_mut()[rel_index] = dof_value.clone();
 
         let node_at_start = graph
             .get_node(start_at_and_edit_output_of)
@@ -291,15 +293,12 @@ fn edit_dof_from_starting_point<G>(
         {
             if let Some(link) = link_to_next_node.as_ref() {
                 // We hit a non-ending node. Edit the state and continue.
-                let node_to_edit = graph
-                    .get_node_mut(&link.timeslice)
-                    .expect("Link should not point to empty timeslice.");
-                node_to_edit.get_input_state_mut()[link.relative_index] = dof_value.clone();
-                node_to_edit.get_output_state_mut()[link.relative_index] = dof_value.clone();
-                // Now get pointer to next node.
-                let node_to_edit = graph
-                    .get_node(&link.timeslice)
-                    .expect("Link should not point to empty timeslice.");
+                graph.modify_node_at_timeslice_input_and_output(&link.timeslice, |input, output| {
+                    input[link.relative_index] = dof_value.clone();
+                    output[link.relative_index] = dof_value.clone();
+                });
+                let node_to_edit = graph.get_node(&link.timeslice).expect("Link should not point to empty timeslice.");
+
                 link_to_next_node =
                     graph.get_link_to_next_node_by_relative_dof(node_to_edit, link.relative_index);
             } else {
@@ -315,10 +314,9 @@ fn edit_dof_from_starting_point<G>(
         // Now edit the last position.
         let link_to_next_node = link_to_next_node.expect("Link pointing to end should not be None");
         debug_assert_eq!(&link_to_next_node.timeslice, stop_at_and_edit_input_of);
-        let node_to_edit = graph
-            .get_node_mut(&link_to_next_node.timeslice)
-            .expect("Link should not point to empty timeslice.");
-        node_to_edit.get_input_state_mut()[link_to_next_node.relative_index] = dof_value.clone();
+        graph.modify_node_at_timeslice_input_and_output(&link_to_next_node.timeslice, |input, _| {
+            input[link_to_next_node.relative_index] = dof_value.clone();
+        });
     });
 }
 

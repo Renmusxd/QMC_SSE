@@ -82,7 +82,8 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQ
         let term_data = &self.all_term_data[node.represents_term.matrix_data_entry];
         let input = Self::DOFType::index_dimension_slice(&node.input_state);
         let output = Self::DOFType::index_dimension_slice(&node.output_state);
-        let new_output = term_data.get_nth_equal_weight_output_for_input_distinct_from_output(input, output, n);
+        let new_output =
+            term_data.get_nth_equal_weight_output_for_input_distinct_from_output(input, output, n);
         Self::DOFType::index_to_state(new_output, node.get_indices().len())
     }
 }
@@ -302,7 +303,10 @@ mod test_naive_flip_implementation {
         let mut qmc = GenericQMC::<bool>::new(2);
         let flip_term = GenericMatrixTermEnum::make_uniform(1.0, 4);
 
-        assert_eq!(flip_term.get_number_of_equal_weight_outputs_for_input_distinct_from_output(0, 0), 3);
+        assert_eq!(
+            flip_term.get_number_of_equal_weight_outputs_for_input_distinct_from_output(0, 0),
+            3
+        );
 
         let handle = qmc.add_term(flip_term, vec![0, 1]);
         let handle_ident = qmc.add_term(GenericMatrixTermEnum::make_identity(2), vec![0]);
@@ -352,7 +356,10 @@ mod test_naive_flip_implementation {
             vec![(0, 0), (1, 1), (2, 2), (3, 3), (0, 1), (1, 0)],
         );
 
-        assert_eq!(flip_term.get_number_of_equal_weight_outputs_for_input_distinct_from_output(0, 0), 1);
+        assert_eq!(
+            flip_term.get_number_of_equal_weight_outputs_for_input_distinct_from_output(0, 0),
+            1
+        );
 
         let handle = qmc.add_term(flip_term, vec![0, 1]);
         let handle_ident = qmc.add_term(GenericMatrixTermEnum::make_identity(2), vec![0]);
@@ -399,7 +406,10 @@ mod test_naive_flip_implementation {
         let mut qmc = GenericQMC::<bool>::new(2);
         let flip_term = GenericMatrixTermEnum::make_uniform(1.0, 2);
 
-        assert_eq!(flip_term.get_number_of_equal_weight_outputs_for_input_distinct_from_output(0, 0), 1);
+        assert_eq!(
+            flip_term.get_number_of_equal_weight_outputs_for_input_distinct_from_output(0, 0),
+            1
+        );
 
         let handle = qmc.add_term(flip_term, vec![0]);
         let handle_ident = qmc.add_term(GenericMatrixTermEnum::make_identity(2), vec![0]);

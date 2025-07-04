@@ -78,8 +78,8 @@ pub trait GraphNode {
     fn get_input_state(&self) -> &[Self::DOFType];
     fn get_output_state(&self) -> &[Self::DOFType];
 
-    fn get_input_state_mut(&mut self) -> &mut [Self::DOFType];
-    fn get_output_state_mut(&mut self) -> &mut [Self::DOFType];
+    // fn get_input_state_mut(&mut self) -> &mut [Self::DOFType];
+    // fn get_output_state_mut(&mut self) -> &mut [Self::DOFType];
     fn get_relative_variable_index(&self, index: &Self::DOFIndex) -> Result<usize, ()>;
     fn is_diagonal(&self) -> bool {
         self.get_input_state() == self.get_output_state()
@@ -159,6 +159,10 @@ where
 
     fn get_next_nodes_for_node(&self, node: &Self::Node)
     -> Vec<Option<Link<Self::TimesliceIndex>>>;
+
+    fn modify_node_at_timeslice_input_and_output<F>(&mut self, timeslice: &Self::TimesliceIndex, f: F) -> Option<&Self::Node>
+    where
+        F: Fn(&mut [Self::DOFType], &mut [Self::DOFType]);
 
     fn insert_node<F>(
         &mut self,

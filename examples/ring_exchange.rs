@@ -120,7 +120,11 @@ where
         if wa == wb { None } else { Some((wa, wb)) }
     }
 
-    fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(&self, input: usize, output: usize) -> usize {
+    fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
+        &self,
+        input: usize,
+        output: usize,
+    ) -> usize {
         if input == self.exchangeable_state_a || input == self.exchangeable_state_b {
             1
         } else {
@@ -128,7 +132,12 @@ where
         }
     }
 
-    fn get_nth_equal_weight_output_for_input_distinct_from_output(&self, input: usize, output: usize, n: usize) -> usize {
+    fn get_nth_equal_weight_output_for_input_distinct_from_output(
+        &self,
+        input: usize,
+        output: usize,
+        n: usize,
+    ) -> usize {
         debug_assert_eq!(n, 0);
         debug_assert!(input == self.exchangeable_state_a || input == self.exchangeable_state_b);
         if output == self.exchangeable_state_a {
