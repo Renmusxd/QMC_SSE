@@ -65,6 +65,10 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
         n as f64 / beta
     }
 
+    pub fn get_each_expectation_value(&self, beta: f64) -> Vec<f64> {
+        (0..self.all_terms.len()).map(|i| self.get_expectation_value_of_term(beta, &i)).collect()
+    }
+
     pub fn set_minimum_timeslices(&mut self, m: usize) {
         if self.num_time_slices() < m {
             self.time_slices.resize_with(m, || None);
