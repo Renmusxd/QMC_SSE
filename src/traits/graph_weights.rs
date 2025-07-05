@@ -32,6 +32,8 @@ pub trait GraphWeight: GraphStateNavigator {
             .map(|node| self.get_matrix_element_from_node(node))
             .product()
     }
+
+    fn get_counts_for_all_terms(&self) -> Vec<usize>;
 }
 
 pub trait MatrixTermTrait: Eq + PartialEq + Clone {

@@ -56,6 +56,15 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
         }
     }
 
+    pub fn get_energy(&self, beta: f64) -> f64 {
+        self.num_non_identity_terms as f64 / beta
+    }
+
+    pub fn get_expectation_value_of_term(&self, beta: f64, term: &MatrixTermHandle) -> f64 {
+        let n = self.get_count_for_term(term);
+        n as f64 / beta
+    }
+
     pub fn set_minimum_timeslices(&mut self, m: usize) {
         if self.num_time_slices() < m {
             self.time_slices.resize_with(m, || None);
@@ -102,6 +111,45 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
             index_of_entry_in_node_list_for_term: usize::MAX,
             index_of_entry_into_flippable_list: None,
         });
+    }
+    fn remove_from_flippable_list(&mut self, node: &DoublyLinkedNode<DOF>) {
+        if let Some(index_to_remove) = node.index_of_entry_into_flippable_list {
+            Self::handle_flippable_removal(
+                index_to_remove,
+                &mut self.list_of_nodes_with_flippable_outputs,
+                &mut self.time_slices,
+            );
+        }
+    }
+
+    fn handle_flippable_removal(
+        index_to_remove: usize,
+        flippable_list: &mut Vec<usize>,
+        time_slices: &mut [Option<DoublyLinkedNode<DOF>>],
+    ) {
+        // Fix entry in list of flippables
+        let last_index = flippable_list.len() - 1;
+        // Check if last entry.
+        if index_to_remove == last_index {
+            // Easy! pop it.
+            flippable_list.pop();
+        } else {
+            // Swap with last, then pop.
+            flippable_list.swap(index_to_remove, last_index);
+            let node_to_fix = time_slices[flippable_list[index_to_remove]]
+                .as_mut()
+                .expect("List entry should never point to None.");
+            debug_assert_eq!(
+                node_to_fix.index_of_entry_into_flippable_list,
+                Some(last_index)
+            );
+            node_to_fix.index_of_entry_into_flippable_list = Some(index_to_remove);
+            flippable_list.pop();
+        }
+    }
+
+    pub fn get_count_for_term(&self, term: &MatrixTermHandle) -> usize {
+        self.list_of_nodes_by_term[*term].len()
     }
 
     pub fn print_worldlines(&self) {
@@ -267,42 +315,6 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
         }
 
         true
-    }
-
-    fn remove_from_flippable_list(&mut self, node: &DoublyLinkedNode<DOF>) {
-        if let Some(index_to_remove) = node.index_of_entry_into_flippable_list {
-            Self::handle_flippable_removal(
-                index_to_remove,
-                &mut self.list_of_nodes_with_flippable_outputs,
-                &mut self.time_slices,
-            );
-        }
-    }
-
-    fn handle_flippable_removal(
-        index_to_remove: usize,
-        flippable_list: &mut Vec<usize>,
-        time_slices: &mut [Option<DoublyLinkedNode<DOF>>],
-    ) {
-        // Fix entry in list of flippables
-        let last_index = flippable_list.len() - 1;
-        // Check if last entry.
-        if index_to_remove == last_index {
-            // Easy! pop it.
-            flippable_list.pop();
-        } else {
-            // Swap with last, then pop.
-            flippable_list.swap(index_to_remove, last_index);
-            let node_to_fix = time_slices[flippable_list[index_to_remove]]
-                .as_mut()
-                .expect("List entry should never point to None.");
-            debug_assert_eq!(
-                node_to_fix.index_of_entry_into_flippable_list,
-                Some(last_index)
-            );
-            node_to_fix.index_of_entry_into_flippable_list = Some(index_to_remove);
-            flippable_list.pop();
-        }
     }
 }
 

@@ -34,7 +34,7 @@ fn main() {
     println!("\t===\t");
 
     let mut num_operators = vec![];
-    let samples = 8192;
+    let samples = 128;
     let autocorr_time = 16;
     for _ in 0..samples {
         for _ in 0..autocorr_time {

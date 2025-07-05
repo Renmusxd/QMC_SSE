@@ -24,6 +24,10 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> GraphWeight for GenericQMC<DO
     fn get_matrix_term_for_node<'a>(&self, node: &'a Self::Node) -> &'a Self::MatrixTerm {
         &node.represents_term
     }
+
+    fn get_counts_for_all_terms(&self) -> Vec<usize> {
+        self.list_of_nodes_by_term.iter().map(|l| l.len()).collect()
+    }
 }
 
 impl MatrixTermTrait for GenericMatrixTerm {
