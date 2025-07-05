@@ -37,7 +37,7 @@ pub trait GraphStateNavigator {
 
     fn get_all_initial_nodes(&self) -> Vec<Option<(&Self::Node, usize)>> {
         self.get_all_indices()
-            .into_iter()
+            .iter()
             .map(|index| self.get_first_node_for_dof(index))
             .collect()
     }
@@ -86,8 +86,6 @@ pub trait GraphNode {
     fn get_input_state(&self) -> &[Self::DOFType];
     fn get_output_state(&self) -> &[Self::DOFType];
 
-    // fn get_input_state_mut(&mut self) -> &mut [Self::DOFType];
-    // fn get_output_state_mut(&mut self) -> &mut [Self::DOFType];
     fn get_relative_variable_index(&self, index: &Self::DOFIndex) -> Result<usize, ()>;
     fn is_diagonal(&self) -> bool {
         self.get_input_state() == self.get_output_state()
@@ -122,8 +120,9 @@ pub trait DOFTypeTrait: Eq + PartialEq + Clone + Default + Debug {
     fn index_to_state(mut dof_index: usize, n_dof: usize) -> Vec<Self> {
         let d = Self::local_dimension();
         let mut output = vec![Self::from_index(0); n_dof];
-        for i in 0..n_dof {
-            output[i] = Self::from_index(dof_index % d);
+
+        for o in output.iter_mut() {
+            *o = Self::from_index(dof_index % d);
             dof_index /= d;
         }
         output

@@ -168,8 +168,7 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQM
             if n_flippable_outputs > 0 {
                 if node.index_of_entry_into_flippable_list.is_none() {
                     let index_to_insert = self.list_of_nodes_with_flippable_outputs.len();
-                    self.list_of_nodes_with_flippable_outputs
-                        .push(timeslice.clone());
+                    self.list_of_nodes_with_flippable_outputs.push(*timeslice);
                     node.index_of_entry_into_flippable_list = Some(index_to_insert);
                 }
             } else if let Some(index_to_remove) =
@@ -232,7 +231,7 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQM
 
         // If there was already a node here, remove it.
         self.remove_node(timeslice);
-        debug_assert!(self.time_slices[timeslice.clone()].is_none());
+        debug_assert!(self.time_slices[*timeslice].is_none());
 
         let mut state = vec![];
         let mut links_back = vec![];
@@ -320,8 +319,7 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQM
             .get_number_of_equal_weight_outputs_for_input_distinct_from_output(input, output);
         if n_flippable_outputs > 0 {
             let index_to_insert = self.list_of_nodes_with_flippable_outputs.len();
-            self.list_of_nodes_with_flippable_outputs
-                .push(timeslice.clone());
+            self.list_of_nodes_with_flippable_outputs.push(*timeslice);
             node.index_of_entry_into_flippable_list = Some(index_to_insert);
         }
 

@@ -161,7 +161,7 @@ where
 
         let target = weight_change_on_flip.unwrap_or(1.0);
         debug_assert!(
-            ((weight_after_update / weight_before_update) - target) < f64::EPSILON,
+            (weight_after_update / weight_before_update - target).abs() < f64::EPSILON,
             "Weights changed in an unexpected way: \t {:.3} -> {:.3} vs expected {:.3}\tFlip started at {:?} ended at {:?}",
             weight_before_update,
             weight_after_update,
@@ -199,8 +199,8 @@ where
 
         if graph.can_node_absorb_flip(
             node_at_timeslice,
-            &flip_config,
-            &acting_on_dofs,
+            flip_config,
+            acting_on_dofs,
             originating_term,
         ) {
             // This will represent the end of the flipped region.

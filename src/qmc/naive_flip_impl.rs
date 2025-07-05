@@ -8,7 +8,7 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQ
     }
 
     fn get_potential_flip_boundary(&self, n: usize) -> Self::TimesliceIndex {
-        self.list_of_nodes_with_flippable_outputs[n].clone()
+        self.list_of_nodes_with_flippable_outputs[n]
     }
 
     fn is_node_potentially_flippable(&self, node: &Self::Node) -> bool {

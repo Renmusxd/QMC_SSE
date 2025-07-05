@@ -10,7 +10,7 @@ impl DOFTypeTrait for bool {
     }
 
     fn from_index(index: usize) -> Self {
-        if index == 0 { false } else { true }
+        index != 0
     }
 
     fn iterate_through_values() -> impl Iterator<Item = Self> {
@@ -53,7 +53,7 @@ impl<const N: usize> DOFTypeTrait for Spin<N> {
     }
 
     fn iterate_through_values() -> impl Iterator<Item = Self> {
-        (0..N).map(|s| Self::new(s))
+        (0..N).map(Self::new)
     }
 
     fn index_to_state(dof_index: usize, n_dof: usize) -> Vec<Self> {

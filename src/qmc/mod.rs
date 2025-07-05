@@ -282,7 +282,7 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
     fn handle_flippable_removal(
         index_to_remove: usize,
         flippable_list: &mut Vec<usize>,
-        time_slices: &mut Vec<Option<DoublyLinkedNode<DOF>>>,
+        time_slices: &mut [Option<DoublyLinkedNode<DOF>>],
     ) {
         // Fix entry in list of flippables
         let last_index = flippable_list.len() - 1;
@@ -465,11 +465,10 @@ where
     }
 
     fn is_maybe_flippable(&self) -> bool {
-        match self {
-            GenericMatrixTermEnum::Uniform { .. } => true,
-            GenericMatrixTermEnum::UniformSparse { .. } => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            GenericMatrixTermEnum::Uniform { .. } | GenericMatrixTermEnum::UniformSparse { .. }
+        )
     }
     fn dim(&self) -> usize {
         match self {
@@ -548,7 +547,7 @@ where
     fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
         &self,
         input: usize,
-        output: usize,
+        _output: usize,
     ) -> usize {
         match self {
             GenericMatrixTermEnum::Uniform { dim, .. } => *dim - 1,

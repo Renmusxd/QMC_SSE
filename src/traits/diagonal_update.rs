@@ -83,7 +83,7 @@ where
                         let node_input = node.get_input_state();
                         node_variables
                             .iter()
-                            .zip(node_input.into_iter())
+                            .zip(node_input.iter())
                             .all(|(v, node_input)| {
                                 let v = v.clone().into();
                                 incoming_state[v].eq(node_input)

@@ -1,6 +1,4 @@
-use crate::traits::graph_traits::{
-    GraphNode, GraphStateNavigator, LinkedGraphNode, TimeSlicedGraph,
-};
+use crate::traits::graph_traits::{GraphNode, GraphStateNavigator};
 
 pub trait GraphWeight: GraphStateNavigator {
     type MatrixTerm: MatrixTermTrait<Index = Self::DOFIndex>;
