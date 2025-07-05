@@ -1,6 +1,6 @@
 use crate::qmc::{DoublyLinkedNode, GenericQMC, MatrixTermData};
 use crate::traits::graph_traits::{
-    DOFTypeTrait, GraphContext, Link, LinkedGraphNode, TimeSlicedGraph,
+    DOFTypeTrait, GraphContext, GraphNode, Link, LinkedGraphNode, TimeSlicedGraph,
 };
 
 impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQMC<DOF, Data> {
@@ -48,6 +48,8 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQM
 
     fn remove_node(&mut self, timeslice: &Self::TimesliceIndex) -> Option<Self::Node> {
         if let Some(node) = self.time_slices[*timeslice].take() {
+            debug_assert!(node.is_diagonal());
+
             // For each variable, fix the previous and next nodes to point to each other.
             for (rel_var, global_var) in node
                 .represents_term
@@ -97,13 +99,9 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQM
             // Reduce count of nodes by one
             self.num_non_identity_terms -= 1;
 
-            // If maybe flippable, keep track of reduced number
-            if self.which_terms_are_maybe_flippable[node.represents_term.matrix_data_entry] {
-                self.total_maybe_flippable -= 1;
-            }
-
             // Fix entry in list of nodes
-            let list_entry = &mut self.list_of_nodes[node.represents_term.matrix_data_entry];
+            let list_entry =
+                &mut self.list_of_nodes_by_term[node.represents_term.matrix_data_entry];
             let index_to_remove = node.index_of_entry_in_node_list_for_term;
             if index_to_remove < list_entry.len() - 1 {
                 // Swap with last entry before popping.
@@ -121,6 +119,10 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQM
                 list_entry.pop();
             }
 
+            // Fix entry in list of flippables
+            self.remove_from_flippable_list(&node);
+
+            debug_assert!(self.check_consistency());
             Some(node)
         } else {
             None
@@ -144,15 +146,44 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQM
         node.next_node_index_for_variable.clone()
     }
 
-    fn modify_node_at_timeslice_input_and_output<F>(&mut self, timeslice: &Self::TimesliceIndex, f: F) -> Option<&Self::Node>
+    fn modify_node_at_timeslice_input_and_output<F>(
+        &mut self,
+        timeslice: &Self::TimesliceIndex,
+        f: F,
+    ) -> Option<&Self::Node>
     where
-        F: Fn(&mut [Self::DOFType], &mut [Self::DOFType])
+        F: Fn(&mut [Self::DOFType], &mut [Self::DOFType]),
     {
         if let Some(node) = self.time_slices[*timeslice].as_mut() {
             let inputs = &mut node.input_state;
             let outputs = &mut node.output_state;
             f(inputs, outputs);
-        }
+
+            // Add to flippable list if now flippable.
+            let matrix_data = &self.all_term_data[node.represents_term.matrix_data_entry];
+            let input = DOF::index_dimension_slice(&node.input_state);
+            let output = DOF::index_dimension_slice(&node.output_state);
+            let n_flippable_outputs = matrix_data
+                .get_number_of_equal_weight_outputs_for_input_distinct_from_output(input, output);
+            if n_flippable_outputs > 0 {
+                if node.index_of_entry_into_flippable_list.is_none() {
+                    let index_to_insert = self.list_of_nodes_with_flippable_outputs.len();
+                    self.list_of_nodes_with_flippable_outputs
+                        .push(timeslice.clone());
+                    node.index_of_entry_into_flippable_list = Some(index_to_insert);
+                }
+            } else if let Some(index_to_remove) =
+                node.index_of_entry_into_flippable_list.as_ref().copied()
+            {
+                node.index_of_entry_into_flippable_list = None;
+                Self::handle_flippable_removal(
+                    index_to_remove,
+                    &mut self.list_of_nodes_with_flippable_outputs,
+                    &mut self.time_slices,
+                );
+            }
+        };
+
         self.time_slices[*timeslice].as_ref()
     }
 
@@ -275,14 +306,23 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQM
         self.num_non_identity_terms += 1;
 
         // Keep track of node in the list of nodes as well.
-        let list_of_nodes_entry = &mut self.list_of_nodes[node.represents_term.matrix_data_entry];
+        let list_of_nodes_entry =
+            &mut self.list_of_nodes_by_term[node.represents_term.matrix_data_entry];
         let index_into_list = list_of_nodes_entry.len();
         list_of_nodes_entry.push(*timeslice);
         node.index_of_entry_in_node_list_for_term = index_into_list;
 
         // And track total number of maybe flippable nodes.
-        if self.which_terms_are_maybe_flippable[node.represents_term.matrix_data_entry] {
-            self.total_maybe_flippable += 1;
+        let matrix_data = &self.all_term_data[node.represents_term.matrix_data_entry];
+        let input = DOF::index_dimension_slice(&node.input_state);
+        let output = DOF::index_dimension_slice(&node.output_state);
+        let n_flippable_outputs = matrix_data
+            .get_number_of_equal_weight_outputs_for_input_distinct_from_output(input, output);
+        if n_flippable_outputs > 0 {
+            let index_to_insert = self.list_of_nodes_with_flippable_outputs.len();
+            self.list_of_nodes_with_flippable_outputs
+                .push(timeslice.clone());
+            node.index_of_entry_into_flippable_list = Some(index_to_insert);
         }
 
         // Finally insert.
@@ -323,19 +363,8 @@ mod test_modify_graph {
     #[test]
     fn test_modify_graph_simple() {
         let mut qmc = GenericQMC::<bool>::new(3);
-        qmc.add_term(GenericMatrixTermEnum::Identity { dim: 2 }, vec![0]);
-
-        qmc.insert_node(&0, &[0], |context| DoublyLinkedNode {
-            input_state: context.local_state.clone(),
-            output_state: context.local_state.clone(),
-            represents_term: GenericMatrixTerm {
-                act_on_indices: vec![0],
-                matrix_data_entry: 0,
-            },
-            previous_node_index_for_variable: context.prev_node_slice,
-            next_node_index_for_variable: context.next_node_slice,
-            index_of_entry_in_node_list_for_term: 0,
-        });
+        let term = qmc.add_term(GenericMatrixTermEnum::Identity { dim: 2 }, vec![0]);
+        qmc.add_node(0, term);
 
         let first_node = qmc.get_first_node_for_dof(&0);
         assert!(first_node.is_some());
@@ -350,23 +379,13 @@ mod test_modify_graph {
 
         for i in 0..3 {
             let vars = (0..i + 1).collect::<Vec<_>>();
-            qmc.add_term(
+            let term = qmc.add_term(
                 GenericMatrixTermEnum::Identity {
                     dim: 1 << vars.len(),
                 },
                 vars.clone(),
             );
-            qmc.insert_node(&i, &vars, |context| DoublyLinkedNode {
-                input_state: context.local_state.clone(),
-                output_state: context.local_state.clone(),
-                represents_term: GenericMatrixTerm {
-                    act_on_indices: vars.clone(),
-                    matrix_data_entry: i,
-                },
-                previous_node_index_for_variable: context.prev_node_slice,
-                next_node_index_for_variable: context.next_node_slice,
-                index_of_entry_in_node_list_for_term: 0,
-            });
+            qmc.add_node(i, term);
         }
 
         // Check first nodes line up

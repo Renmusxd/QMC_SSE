@@ -22,7 +22,9 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> DiagonalUpdate for GenericQMC
             represents_term: term,
             previous_node_index_for_variable: context.prev_node_slice,
             next_node_index_for_variable: context.next_node_slice,
-            index_of_entry_in_node_list_for_term: usize::MAX, // Will be edited on insertion.
+            // Insert node will overwrite these values.
+            index_of_entry_in_node_list_for_term: usize::MAX,
+            index_of_entry_into_flippable_list: None,
         }
     }
 }

@@ -67,18 +67,7 @@ mod weight_tests {
             GenericMatrixTermEnum::make_diagonal(vec![1.0, 2.0]),
             vec![0],
         );
-
-        qmc.insert_node(&0, &[0], |context| DoublyLinkedNode {
-            input_state: context.local_state.clone(),
-            output_state: context.local_state.clone(),
-            represents_term: GenericMatrixTerm {
-                act_on_indices: vec![0],
-                matrix_data_entry: term_handle,
-            },
-            previous_node_index_for_variable: context.prev_node_slice,
-            next_node_index_for_variable: context.next_node_slice,
-            index_of_entry_in_node_list_for_term: 0,
-        });
+        qmc.add_node(0, term_handle);
 
         let node = qmc.get_node(&0).unwrap();
         let a = qmc.get_matrix_element_from_node(node);

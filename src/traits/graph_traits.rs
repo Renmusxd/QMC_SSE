@@ -11,6 +11,12 @@ pub trait GraphStateNavigator {
         self.get_initial_state().len()
     }
     fn get_initial_state_mut(&mut self) -> &mut [Self::DOFType];
+
+    fn set_initial_state(&mut self, dof: &Self::DOFIndex, val: Self::DOFType) {
+        let initial_state = self.get_initial_state_mut();
+        initial_state[dof.clone().into()] = val;
+    }
+
     fn get_all_indices(&self) -> &[Self::DOFIndex];
     fn get_first_node_for_dof(&self, index: &Self::DOFIndex) -> Option<(&Self::Node, usize)>;
     fn get_last_node_for_dof(&self, index: &Self::DOFIndex) -> Option<(&Self::Node, usize)>;
@@ -68,6 +74,8 @@ pub trait GraphStateNavigator {
     }
 
     fn iterate_over_all_nodes(&self) -> impl Iterator<Item = &Self::Node>;
+
+    fn check_graph_consistency(&self) -> bool;
 }
 
 pub trait GraphNode {
@@ -160,7 +168,11 @@ where
     fn get_next_nodes_for_node(&self, node: &Self::Node)
     -> Vec<Option<Link<Self::TimesliceIndex>>>;
 
-    fn modify_node_at_timeslice_input_and_output<F>(&mut self, timeslice: &Self::TimesliceIndex, f: F) -> Option<&Self::Node>
+    fn modify_node_at_timeslice_input_and_output<F>(
+        &mut self,
+        timeslice: &Self::TimesliceIndex,
+        f: F,
+    ) -> Option<&Self::Node>
     where
         F: Fn(&mut [Self::DOFType], &mut [Self::DOFType]);
 

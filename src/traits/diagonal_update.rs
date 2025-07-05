@@ -26,6 +26,8 @@ where
     where
         R: Rng,
     {
+        debug_assert!(self.check_graph_consistency());
+
         let mut incoming_state = self.get_initial_state().to_vec();
         let mut last_nodes = vec![None; self.get_num_dof()];
         let nd = self.get_possible_terms().len();
@@ -127,5 +129,7 @@ where
 
             timeslice = self.get_next_timeslice(t);
         }
+
+        debug_assert!(self.check_graph_consistency());
     }
 }

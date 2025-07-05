@@ -1,11 +1,9 @@
 use num_traits::{One, Zero};
 use rand::prelude::*;
-use std::env::var;
 
 use QmcSSE::qmc::{GenericQMC, MatrixTermData};
 use QmcSSE::traits::diagonal_update::DiagonalUpdate;
 use QmcSSE::traits::graph_traits::GraphStateNavigator;
-use QmcSSE::traits::graph_weights::GraphWeight;
 use QmcSSE::traits::naive_flip_update::NaiveFlipUpdater;
 
 fn main() {
@@ -29,24 +27,20 @@ fn main() {
     for i in 0..thermalization_steps {
         qmc.maintain_maximum_filling_fraction(0.75, 16);
         qmc.diagonal_update(beta, &mut rng);
-        for j in 0..qmc.get_n_dof() {
-            qmc.naive_flip_update(&mut rng);
-        }
+        qmc.naive_flip_update(&mut rng);
     }
     qmc.print_worldlines();
 
     println!("\t===\t");
 
     let mut num_operators = vec![];
-    let samples = 1024;
+    let samples = 8192;
     let autocorr_time = 16;
     for _ in 0..samples {
         for _ in 0..autocorr_time {
             qmc.maintain_maximum_filling_fraction(0.75, 16);
             qmc.diagonal_update(beta, &mut rng);
-            for _ in 0..qmc.get_n_dof() {
-                qmc.naive_flip_update(&mut rng);
-            }
+            qmc.naive_flip_update(&mut rng);
         }
         let n_nonzero = qmc.get_number_of_non_identity_operators();
         num_operators.push(n_nonzero);

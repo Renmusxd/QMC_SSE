@@ -69,6 +69,10 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> GraphStateNavigator for Gener
     fn iterate_over_all_nodes(&self) -> impl Iterator<Item = &Self::Node> {
         self.time_slices.iter().filter_map(|node| node.as_ref())
     }
+
+    fn check_graph_consistency(&self) -> bool {
+        self.check_consistency()
+    }
 }
 
 impl<DOF: DOFTypeTrait> GraphNode for DoublyLinkedNode<DOF> {
@@ -86,14 +90,6 @@ impl<DOF: DOFTypeTrait> GraphNode for DoublyLinkedNode<DOF> {
     fn get_output_state(&self) -> &[Self::DOFType] {
         &self.output_state
     }
-
-    // fn get_input_state_mut(&mut self) -> &mut [Self::DOFType] {
-    //     &mut self.input_state
-    // }
-    //
-    // fn get_output_state_mut(&mut self) -> &mut [Self::DOFType] {
-    //     &mut self.output_state
-    // }
 
     fn get_relative_variable_index(&self, index: &Self::DOFIndex) -> Result<usize, ()> {
         self.get_indices()

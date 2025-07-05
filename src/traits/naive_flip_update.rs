@@ -65,6 +65,7 @@ where
         R: Rng,
     {
         // Only in debug.
+        debug_assert!(self.check_graph_consistency());
         let weight_before_update = self.get_total_graph_weight_from_nodes();
         debug_assert!(
             weight_before_update > f64::EPSILON,
@@ -167,7 +168,8 @@ where
             target,
             start_pos,
             end_flip_location
-        )
+        );
+        debug_assert!(self.check_graph_consistency());
     }
 }
 
@@ -268,55 +270,87 @@ fn edit_dof_from_starting_point<G>(
     G: NaiveFlipUpdater + ?Sized,
     G::Node: LinkedGraphNode,
 {
-    // TODO: do all DOF at same time to reduce calls to `modify_node_at_timeslice_input_and_output`
-    // We do these one dof at a time.
-    let it = acting_on_dofs.iter().zip(flip_config.iter()).enumerate();
-    it.for_each(|(rel_index, (dof_index, dof_value))| {
+    graph.modify_node_at_timeslice_input_and_output(start_at_and_edit_output_of, |_, output| {
+        output
+            .iter_mut()
+            .zip(flip_config.iter())
+            .for_each(|(x, y)| {
+                *x = y.clone();
+            })
+    });
 
-        // Modify the output.
-        let node_at_start = graph.modify_node_at_timeslice_input_and_output(start_at_and_edit_output_of, |_, output| {
-            output[rel_index] = dof_value.clone();
-        }).expect("Cannot be None");
-        debug_assert_eq!(&node_at_start.get_indices()[rel_index], dof_index);
+    let start_node = graph
+        .get_node(start_at_and_edit_output_of)
+        .expect("There must be a node at the start.");
+    let mut next_nodes = graph.get_next_nodes_for_node(start_node);
 
-        let node_at_start = graph
-            .get_node(start_at_and_edit_output_of)
-            .expect("Cannot be None");
-        let mut link_to_next_node =
-            graph.get_link_to_next_node_by_relative_dof(node_at_start, rel_index);
+    // Now if all next_nodes are None, overwrite with head.
+    if next_nodes.iter().all(|l| l.is_none()) {
+        acting_on_dofs
+            .iter()
+            .zip(next_nodes.iter_mut())
+            .zip(flip_config.iter())
+            .for_each(|((global_dof, link), val)| {
+                *link = graph.get_first_timeslice_for_dof(global_dof).cloned();
+                graph.set_initial_state(global_dof, val.clone());
+            });
+    }
 
-        // Loop until the link is pointing at the stop position.
-        while link_to_next_node
-            .as_ref()
-            .map(|t| t.timeslice.ne(stop_at_and_edit_input_of))
-            .unwrap_or(true)
-        {
-            if let Some(link) = link_to_next_node.as_ref() {
-                // We hit a non-ending node. Edit the state and continue.
-                graph.modify_node_at_timeslice_input_and_output(&link.timeslice, |input, output| {
-                    input[link.relative_index] = dof_value.clone();
-                    output[link.relative_index] = dof_value.clone();
-                });
-                let node_to_edit = graph.get_node(&link.timeslice).expect("Link should not point to empty timeslice.");
+    // Now repeatedly look at the next link.
+    while let Some((_, link)) = get_argmin_and_min_in_slice(&next_nodes) {
+        if &link.timeslice == stop_at_and_edit_input_of {
+            break;
+        }
+        let current_timeslice = link.timeslice.clone();
 
-                link_to_next_node =
-                    graph.get_link_to_next_node_by_relative_dof(node_to_edit, link.relative_index);
-            } else {
-                // We hit the end of the timeline without hitting the stop_at_end.
-                debug_assert!(stop_at_and_edit_input_of <= start_at_and_edit_output_of);
-                let initial_state = graph.get_initial_state_mut();
-                initial_state[dof_index.clone().into()] = dof_value.clone();
-                // Go back to start.
-                link_to_next_node = graph.get_first_timeslice_for_dof(dof_index).cloned();
+        // Each dof pointing to this node must edit it.
+        graph.modify_node_at_timeslice_input_and_output(&link.timeslice, |input, output| {
+            for (link, flip_value) in next_nodes.iter().zip(flip_config.iter()) {
+                if let Some(link) = link {
+                    if link.timeslice != current_timeslice {
+                        continue;
+                    }
+
+                    input[link.relative_index] = flip_value.clone();
+                    output[link.relative_index] = flip_value.clone();
+                }
+            }
+        });
+
+        let node_at_current_timeslice = graph
+            .get_node(&current_timeslice)
+            .expect("There must be a node here since a link points to it.");
+        for link in next_nodes.iter_mut() {
+            if let Some(rel_index) = link.as_ref().and_then(|link| {
+                if link.timeslice == current_timeslice {
+                    Some(link.relative_index)
+                } else {
+                    None
+                }
+            }) {
+                // This link is pointing to this node. We should update it.
+                *link = graph
+                    .get_link_to_next_node_by_relative_dof(node_at_current_timeslice, rel_index);
             }
         }
 
-        // Now edit the last position.
-        let link_to_next_node = link_to_next_node.expect("Link pointing to end should not be None");
-        debug_assert_eq!(&link_to_next_node.timeslice, stop_at_and_edit_input_of);
-        graph.modify_node_at_timeslice_input_and_output(&link_to_next_node.timeslice, |input, _| {
-            input[link_to_next_node.relative_index] = dof_value.clone();
-        });
+        // Now if all next_nodes are None, overwrite with head.
+        if next_nodes.iter().all(|l| l.is_none()) {
+            acting_on_dofs
+                .iter()
+                .zip(next_nodes.iter_mut())
+                .zip(flip_config.iter())
+                .for_each(|((global_dof, link), val)| {
+                    *link = graph.get_first_timeslice_for_dof(global_dof).cloned();
+                    graph.set_initial_state(global_dof, val.clone());
+                });
+        }
+    }
+
+    graph.modify_node_at_timeslice_input_and_output(stop_at_and_edit_input_of, |input, _| {
+        input.iter_mut().zip(flip_config.iter()).for_each(|(x, y)| {
+            *x = y.clone();
+        })
     });
 }
 

@@ -4,63 +4,11 @@ use crate::traits::naive_flip_update::NaiveFlipUpdater;
 
 impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQMC<DOF, Data> {
     fn num_potential_flip_boundaries(&self) -> usize {
-        self.total_maybe_flippable
+        self.list_of_nodes_with_flippable_outputs.len()
     }
 
     fn get_potential_flip_boundary(&self, n: usize) -> Self::TimesliceIndex {
-        let res = self
-            .which_terms_are_maybe_flippable
-            .iter()
-            .copied()
-            .zip(self.list_of_nodes.iter())
-            .filter(|(a, _)| *a)
-            .map(|(_, b)| b)
-            .try_fold(n, |acc, nodes| {
-                if acc >= nodes.len() {
-                    Ok(acc - nodes.len())
-                } else {
-                    Err(nodes[acc])
-                }
-            });
-        match res {
-            Err(x) => x,
-            Ok(_) => unreachable!("Reached end of fold without finding flip boundary."),
-        }
-    }
-
-    fn get_relative_weight_change_for_new_state(
-        &self,
-        node: &Self::Node,
-        new_state: &[Self::DOFType],
-    ) -> Option<f64> {
-        debug_assert!(node.is_diagonal());
-        let term_data = &self.all_term_data[node.represents_term.matrix_data_entry];
-        let old_state = Self::DOFType::index_dimension_slice(&node.input_state);
-        let new_state = Self::DOFType::index_dimension_slice(new_state);
-        term_data
-            .get_weight_change_for_diagonal(old_state, new_state)
-            .map(|(a, b)| b / a)
-    }
-
-    fn can_node_absorb_flip(
-        &self,
-        node: &Self::Node,
-        new_input_state: &[Self::DOFType],
-        _acts_on_dof: &[Self::DOFIndex],
-        originating_matrix_term: &Self::MatrixTerm,
-    ) -> bool {
-        if node.represents_term.matrix_data_entry != originating_matrix_term.matrix_data_entry {
-            // For efficiency, only consider like terms.
-            false
-        } else {
-            let old_input_state = Self::DOFType::index_dimension_slice(&node.input_state);
-            let new_input_state = Self::DOFType::index_dimension_slice(new_input_state);
-            let output = Self::DOFType::index_dimension_slice(&node.output_state);
-            let term_data = &self.all_term_data[node.represents_term.matrix_data_entry];
-            term_data
-                .get_weight_change_for_inputs_given_output(old_input_state, new_input_state, output)
-                .is_none()
-        }
+        self.list_of_nodes_with_flippable_outputs[n].clone()
     }
 
     fn is_node_potentially_flippable(&self, node: &Self::Node) -> bool {
@@ -85,6 +33,41 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQ
         let new_output =
             term_data.get_nth_equal_weight_output_for_input_distinct_from_output(input, output, n);
         Self::DOFType::index_to_state(new_output, node.get_indices().len())
+    }
+
+    fn can_node_absorb_flip(
+        &self,
+        node: &Self::Node,
+        new_input_state: &[Self::DOFType],
+        _acts_on_dof: &[Self::DOFIndex],
+        originating_matrix_term: &Self::MatrixTerm,
+    ) -> bool {
+        if node.represents_term.matrix_data_entry != originating_matrix_term.matrix_data_entry {
+            // For efficiency, only consider like terms.
+            false
+        } else {
+            let old_input_state = Self::DOFType::index_dimension_slice(&node.input_state);
+            let new_input_state = Self::DOFType::index_dimension_slice(new_input_state);
+            let output = Self::DOFType::index_dimension_slice(&node.output_state);
+            let term_data = &self.all_term_data[node.represents_term.matrix_data_entry];
+            term_data
+                .get_weight_change_for_inputs_given_output(old_input_state, new_input_state, output)
+                .is_none()
+        }
+    }
+
+    fn get_relative_weight_change_for_new_state(
+        &self,
+        node: &Self::Node,
+        new_state: &[Self::DOFType],
+    ) -> Option<f64> {
+        debug_assert!(node.is_diagonal());
+        let term_data = &self.all_term_data[node.represents_term.matrix_data_entry];
+        let old_state = Self::DOFType::index_dimension_slice(&node.input_state);
+        let new_state = Self::DOFType::index_dimension_slice(new_state);
+        term_data
+            .get_weight_change_for_diagonal(old_state, new_state)
+            .map(|(a, b)| b / a)
     }
 }
 

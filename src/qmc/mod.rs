@@ -24,14 +24,14 @@ pub struct GenericQMC<
     // List of all terms in Hamiltonian
     all_terms: Vec<GenericMatrixTerm>,
     all_term_data: Vec<TermData>,
-    which_terms_are_maybe_flippable: Vec<bool>,
 
     // Count of terms
     num_non_identity_terms: usize,
 
     // Keep track of nodes and which are maybe flippable.
-    list_of_nodes: Vec<Vec<usize>>,
-    total_maybe_flippable: usize,
+    list_of_nodes_by_term: Vec<Vec<usize>>,
+
+    list_of_nodes_with_flippable_outputs: Vec<usize>,
 }
 
 impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData> {
@@ -50,10 +50,9 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
             last_nodes_for_dofs: vec![None; n],
             all_terms: vec![],
             all_term_data: vec![],
-            which_terms_are_maybe_flippable: vec![],
             num_non_identity_terms: 0,
-            list_of_nodes: vec![],
-            total_maybe_flippable: 0,
+            list_of_nodes_by_term: vec![],
+            list_of_nodes_with_flippable_outputs: vec![],
         }
     }
 
@@ -74,7 +73,6 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
             data.dim(),
             DOF::local_dimension().pow(act_on_indices.len() as u32)
         );
-        let is_maybe_flippable = data.is_maybe_flippable();
 
         let matrix_data_entry = self.all_term_data.len();
         self.all_term_data.push(data);
@@ -84,9 +82,7 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
         });
 
         // Add an entry for lists of nodes
-        self.which_terms_are_maybe_flippable
-            .push(is_maybe_flippable);
-        self.list_of_nodes.push(vec![]);
+        self.list_of_nodes_by_term.push(vec![]);
 
         matrix_data_entry
     }
@@ -102,7 +98,9 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
             },
             previous_node_index_for_variable: context.prev_node_slice,
             next_node_index_for_variable: context.next_node_slice,
+            // Handled by .insert_node call.
             index_of_entry_in_node_list_for_term: usize::MAX,
+            index_of_entry_into_flippable_list: None,
         });
     }
 
@@ -203,42 +201,52 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
         }
 
         // Now check the bookkeeping
-        let list_node_should_be_in = &self.list_of_nodes[node.represents_term.matrix_data_entry];
+        let list_node_should_be_in =
+            &self.list_of_nodes_by_term[node.represents_term.matrix_data_entry];
         assert_eq!(
             list_node_should_be_in[node.index_of_entry_in_node_list_for_term],
             timeslice
         );
 
+        let matrix_data = &self.all_term_data[node.represents_term.matrix_data_entry];
+        let input = DOF::index_dimension_slice(&node.input_state);
+        let output = DOF::index_dimension_slice(&node.output_state);
+        let n_flippable_outputs = matrix_data
+            .get_number_of_equal_weight_outputs_for_input_distinct_from_output(input, output);
+        assert_eq!(
+            n_flippable_outputs > 0,
+            node.index_of_entry_into_flippable_list.is_some()
+        );
+        if let Some(entry_in_list_of_flippable) =
+            node.index_of_entry_into_flippable_list.as_ref().copied()
+        {
+            assert_eq!(
+                self.list_of_nodes_with_flippable_outputs[entry_in_list_of_flippable],
+                timeslice
+            );
+        }
+
         true
     }
 
     pub fn check_consistency(&self) -> bool {
+        // Check count of nodes.
         let mut num_nodes = 0;
-        let mut num_potentially_flippable = 0;
         for (t, slice) in self.time_slices.iter().enumerate() {
             if let Some(node) = slice {
                 self.check_node_consistency(t, node);
-
                 num_nodes += 1;
-                if self.is_node_potentially_flippable(node) {
-                    num_potentially_flippable += 1;
-                }
             }
         }
-
         assert_eq!(num_nodes, self.num_non_identity_terms);
-        assert_eq!(num_potentially_flippable, self.total_maybe_flippable);
 
-        let num_nodes = self.list_of_nodes.iter().map(|x| x.len()).sum::<usize>();
-        let num_potentially_flippable = self
-            .list_of_nodes
+        // Check count of nodes from node list.
+        let num_nodes = self
+            .list_of_nodes_by_term
             .iter()
             .map(|x| x.len())
-            .zip(self.which_terms_are_maybe_flippable.iter())
-            .filter_map(|(a, b)| if *b { Some(a) } else { None })
             .sum::<usize>();
         assert_eq!(num_nodes, self.num_non_identity_terms);
-        assert_eq!(num_potentially_flippable, self.total_maybe_flippable);
 
         // Now lets check that all the inputs/outputs align.
         let mut state = self.initial_state.clone();
@@ -250,7 +258,51 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
         }
         assert_eq!(state, self.initial_state);
 
+        // Check that the bookkeeping list checks out
+        for (i, t) in self.list_of_nodes_with_flippable_outputs.iter().enumerate() {
+            let node = self.time_slices[*t]
+                .as_ref()
+                .expect("List of nodes must point to non-None");
+            assert_eq!(node.index_of_entry_into_flippable_list, Some(i));
+        }
+
         true
+    }
+
+    fn remove_from_flippable_list(&mut self, node: &DoublyLinkedNode<DOF>) {
+        if let Some(index_to_remove) = node.index_of_entry_into_flippable_list {
+            Self::handle_flippable_removal(
+                index_to_remove,
+                &mut self.list_of_nodes_with_flippable_outputs,
+                &mut self.time_slices,
+            );
+        }
+    }
+
+    fn handle_flippable_removal(
+        index_to_remove: usize,
+        flippable_list: &mut Vec<usize>,
+        time_slices: &mut Vec<Option<DoublyLinkedNode<DOF>>>,
+    ) {
+        // Fix entry in list of flippables
+        let last_index = flippable_list.len() - 1;
+        // Check if last entry.
+        if index_to_remove == last_index {
+            // Easy! pop it.
+            flippable_list.pop();
+        } else {
+            // Swap with last, then pop.
+            flippable_list.swap(index_to_remove, last_index);
+            let node_to_fix = time_slices[flippable_list[index_to_remove]]
+                .as_mut()
+                .expect("List entry should never point to None.");
+            debug_assert_eq!(
+                node_to_fix.index_of_entry_into_flippable_list,
+                Some(last_index)
+            );
+            node_to_fix.index_of_entry_into_flippable_list = Some(index_to_remove);
+            flippable_list.pop();
+        }
     }
 }
 
@@ -263,6 +315,7 @@ pub struct DoublyLinkedNode<DOF: DOFTypeTrait> {
 
     // Keep track of where this is being tracked.
     index_of_entry_in_node_list_for_term: usize,
+    index_of_entry_into_flippable_list: Option<usize>,
 }
 
 pub trait MatrixTermData<T> {
@@ -418,47 +471,6 @@ where
             _ => false,
         }
     }
-    fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
-        &self,
-        input: usize,
-        output: usize,
-    ) -> usize {
-        match self {
-            GenericMatrixTermEnum::Uniform { dim, .. } => *dim - 1,
-            GenericMatrixTermEnum::UniformSparse {
-                outputs_for_input, ..
-            } => outputs_for_input[input].len() - 1,
-            _ => 0,
-        }
-    }
-    fn get_nth_equal_weight_output_for_input_distinct_from_output(
-        &self,
-        input: usize,
-        output: usize,
-        n: usize,
-    ) -> usize {
-        match self {
-            GenericMatrixTermEnum::Uniform { .. } => {
-                if n < output {
-                    n
-                } else {
-                    n + 1
-                }
-            }
-            GenericMatrixTermEnum::UniformSparse {
-                outputs_for_input, ..
-            } => {
-                let res = outputs_for_input[input][n];
-                if res < output {
-                    res
-                } else {
-                    outputs_for_input[input][n + 1]
-                }
-            }
-            _ => input,
-        }
-    }
-
     fn dim(&self) -> usize {
         match self {
             Self::Identity { dim, .. } => *dim,
@@ -468,7 +480,6 @@ where
             Self::Generic { dim, .. } => *dim,
         }
     }
-
     /// None means no change, Some((old, new)) implies there may be a change.
     fn get_weight_change_for_diagonal(&self, old_state: usize, new_state: usize) -> Option<(T, T)> {
         match &self {
@@ -531,6 +542,48 @@ where
                     (Ok(_), Err(_)) => Some((T::zero(), data.clone())),
                 }
             }
+        }
+    }
+
+    fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
+        &self,
+        input: usize,
+        output: usize,
+    ) -> usize {
+        match self {
+            GenericMatrixTermEnum::Uniform { dim, .. } => *dim - 1,
+            GenericMatrixTermEnum::UniformSparse {
+                outputs_for_input, ..
+            } => outputs_for_input[input].len() - 1,
+            _ => 0,
+        }
+    }
+
+    fn get_nth_equal_weight_output_for_input_distinct_from_output(
+        &self,
+        input: usize,
+        output: usize,
+        n: usize,
+    ) -> usize {
+        match self {
+            GenericMatrixTermEnum::Uniform { .. } => {
+                if n < output {
+                    n
+                } else {
+                    n + 1
+                }
+            }
+            GenericMatrixTermEnum::UniformSparse {
+                outputs_for_input, ..
+            } => {
+                let res = outputs_for_input[input][n];
+                if res < output {
+                    res
+                } else {
+                    outputs_for_input[input][n + 1]
+                }
+            }
+            _ => input,
         }
     }
 }
