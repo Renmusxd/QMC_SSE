@@ -3,6 +3,8 @@ use crate::traits::naive_flip_update::NaiveFlipUpdater;
 use num_traits::{One, Zero};
 use std::cmp::max;
 
+#[cfg(feature = "autocorrelations")]
+mod autocorr;
 mod diagonal_impl;
 mod graph_mod_impl;
 mod naive_flip_impl;
@@ -66,7 +68,9 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
     }
 
     pub fn get_each_expectation_value(&self, beta: f64) -> Vec<f64> {
-        (0..self.all_terms.len()).map(|i| self.get_expectation_value_of_term(beta, &i)).collect()
+        (0..self.all_terms.len())
+            .map(|i| self.get_expectation_value_of_term(beta, &i))
+            .collect()
     }
 
     pub fn set_minimum_timeslices(&mut self, m: usize) {
@@ -85,6 +89,15 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
         debug_assert_eq!(
             data.dim(),
             DOF::local_dimension().pow(act_on_indices.len() as u32)
+        );
+        debug_assert_eq!(
+            {
+                let mut indices_clone = act_on_indices.clone();
+                indices_clone.dedup();
+                indices_clone.len()
+            },
+            act_on_indices.len(),
+            "Indices cannot contain duplicates."
         );
 
         let matrix_data_entry = self.all_term_data.len();

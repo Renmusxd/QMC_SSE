@@ -239,11 +239,12 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQM
 
         variables
             .iter()
+            .copied()
             .enumerate()
             .for_each(|(relative_index, global_index)| {
                 // Get information from the nodes.
                 let link_to_previous_node_for_variable =
-                    all_previous_node_indices[*global_index].as_ref();
+                    all_previous_node_indices[global_index].as_ref();
                 let (s, b, f) = if let Some(link) = link_to_previous_node_for_variable {
                     let n = self.time_slices[link.timeslice]
                         .as_ref()
@@ -253,11 +254,27 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQM
                     let f = n.next_node_index_for_variable[link.relative_index].clone();
                     (s, b, f)
                 } else {
-                    let s = self.initial_state[*global_index].clone();
+                    let s = self.initial_state[global_index].clone();
                     let b = None;
-                    let f = self.first_nodes_for_dofs[*global_index].clone();
+                    let f = self.first_nodes_for_dofs[global_index].clone();
                     (s, b, f)
                 };
+
+                debug_assert!(
+                    match &b {
+                        None => true,
+                        Some(t) => t.timeslice < *timeslice,
+                    },
+                    "Backward pointer must be before timeslice."
+                );
+
+                debug_assert!(
+                    match &f {
+                        None => true,
+                        Some(t) => t.timeslice > *timeslice,
+                    },
+                    "Forward pointer must be after timeslice."
+                );
 
                 // Now modify the nodes to point to the new spot.
                 let link_to_me = Some(Link {
@@ -274,7 +291,7 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQM
                         link_to_me.clone();
                 } else {
                     // There's no previous node. We are the new head.
-                    self.first_nodes_for_dofs[*global_index] = link_to_me.clone();
+                    self.first_nodes_for_dofs[global_index] = link_to_me.clone();
                 }
                 // Modify next node or tail.
                 if let Some(link) = f.as_ref() {
@@ -285,7 +302,7 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQM
                     next_node.previous_node_index_for_variable[link.relative_index] = link_to_me;
                 } else {
                     // There's no next node. We are the new tail.
-                    self.last_nodes_for_dofs[*global_index] = link_to_me;
+                    self.last_nodes_for_dofs[global_index] = link_to_me;
                 }
 
                 // Save information for node construction purposes.

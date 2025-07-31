@@ -9,8 +9,7 @@ use QmcSSE::traits::naive_flip_update::NaiveFlipUpdater;
 fn main() {
     let l = 3;
 
-    let mut qmc =
-        GenericQMC::<bool, RingExchangeData<f64>>::new_with_state(vec![false; l]);
+    let mut qmc = GenericQMC::<bool, RingExchangeData<f64>>::new_with_state(vec![false; l]);
 
     let term = RingExchangeData::<f64> {
         scale: 1.0,
@@ -19,11 +18,11 @@ fn main() {
         dim: 4,
     };
 
-    for i in 0..l-1 {
-        qmc.add_term(term.clone(), vec![i, i+1]);
+    for i in 0..l - 1 {
+        qmc.add_term(term.clone(), vec![i, i + 1]);
     }
 
-    let beta = 128.0;
+    let beta = 16.0;
     let mut rng = SmallRng::seed_from_u64(12345);
 
     let thermalization_steps = 1024;
