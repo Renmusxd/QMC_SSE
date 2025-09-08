@@ -238,6 +238,15 @@ pub enum DirectionEnum {
     Output,
 }
 
+impl DirectionEnum {
+    pub fn swap_direction(&self) -> Self {
+        match self {
+            DirectionEnum::Input => DirectionEnum::Output,
+            DirectionEnum::Output => DirectionEnum::Input,
+        }
+    }
+}
+
 pub struct NodeLink<N> {
     node: N,
     relative_index: usize,
@@ -309,7 +318,6 @@ pub trait NodeClusterExpansion<DOF> {
     fn get_iterator(self) -> impl IntoIterator<Item = (DirectionEnum, usize, DOF)>;
 }
 
-
 #[derive(Clone, Copy, Debug)]
 pub enum WeightChange {
     NoChange,
@@ -344,13 +352,15 @@ impl MulAssign<WeightChange> for WeightChange {
     }
 }
 
-
-impl<DOF,T> NodeClusterExpansion<DOF> for T where T: IntoIterator<Item=(DirectionEnum, usize, DOF)> {
+impl<DOF, T> NodeClusterExpansion<DOF> for T
+where
+    T: IntoIterator<Item = (DirectionEnum, usize, DOF)>,
+{
     fn get_weight_change(&self) -> WeightChange {
         WeightChange::NoChange
     }
 
-    fn get_iterator(self) -> impl IntoIterator<Item=(DirectionEnum, usize, DOF)> {
+    fn get_iterator(self) -> impl IntoIterator<Item = (DirectionEnum, usize, DOF)> {
         self
     }
 }

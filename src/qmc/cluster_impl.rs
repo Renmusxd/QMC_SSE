@@ -388,7 +388,7 @@ mod cluster_tests {
 
     #[test]
     fn check_simple_cluster() -> Result<(), ()> {
-        let mut qmc = GenericQMC::<bool, EyePlusXMatrixTerm>::new(1);
+        let mut qmc = GenericQMC::new(1);
         let handle = qmc.add_term(EyePlusXMatrixTerm, vec![0]);
         qmc.add_node(0, handle);
         qmc.add_node(2, handle);
@@ -411,7 +411,7 @@ mod cluster_tests {
 
     #[test]
     fn check_simple_cluster_wrap() -> Result<(), ()> {
-        let mut qmc = GenericQMC::<bool, EyePlusXMatrixTerm>::new(1);
+        let mut qmc = GenericQMC::new(1);
         let handle = qmc.add_term(EyePlusXMatrixTerm, vec![0]);
         qmc.add_node(0, handle);
         qmc.add_node(2, handle);
@@ -434,10 +434,9 @@ mod cluster_tests {
         Ok(())
     }
 
-
     #[test]
     fn check_simple_cluster_wrap_single_op() -> Result<(), ()> {
-        let mut qmc = GenericQMC::<bool, EyePlusXMatrixTerm>::new(1);
+        let mut qmc = GenericQMC::new(1);
         let handle = qmc.add_term(EyePlusXMatrixTerm, vec![0]);
         qmc.add_node(0, handle);
 
@@ -454,12 +453,11 @@ mod cluster_tests {
         Ok(())
     }
 
-
     struct EyeEyePlusXXMatrixTerm;
 
     impl MatrixTermData<f64> for EyeEyePlusXXMatrixTerm {
         fn get_matrix_entry(&self, input: usize, output: usize) -> f64 {
-            1.0
+            unimplemented!()
         }
         fn dim(&self) -> usize {
             4
@@ -469,7 +467,7 @@ mod cluster_tests {
             old_state: usize,
             new_state: usize,
         ) -> Option<(f64, f64)> {
-            None
+            unimplemented!()
         }
         fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
             &self,
@@ -502,7 +500,7 @@ mod cluster_tests {
                 1 => 2,
                 2 => 1,
                 3 => 0,
-                _ => unreachable!()
+                _ => unreachable!(),
             }
         }
     }
@@ -530,7 +528,7 @@ mod cluster_tests {
             let new_direction = direction;
             let new_value = match new_direction {
                 DirectionEnum::Input => !input_state[new_index],
-                DirectionEnum::Output => !output_state[new_index]
+                DirectionEnum::Output => !output_state[new_index],
             };
             Some((new_direction, new_index, new_value))
         }
@@ -538,7 +536,7 @@ mod cluster_tests {
 
     #[test]
     fn check_simple_twobody_cluster() -> Result<(), ()> {
-        let mut qmc = GenericQMC::<bool, EyeEyePlusXXMatrixTerm>::new(2);
+        let mut qmc = GenericQMC::new(2);
         let handle = qmc.add_term(EyeEyePlusXXMatrixTerm, vec![0, 1]);
         qmc.add_node(0, handle);
         qmc.add_node(2, handle);
@@ -559,11 +557,9 @@ mod cluster_tests {
         Ok(())
     }
 
-
-
     #[test]
-    fn check_simple_twobody_cluster_wrap_single_op() -> Result<(), ()> {
-        let mut qmc = GenericQMC::<bool, EyeEyePlusXXMatrixTerm>::new(2);
+    fn check_simple_twobody_cluster_wrap_single_op_worm() -> Result<(), ()> {
+        let mut qmc = GenericQMC::new(2);
         let handle = qmc.add_term(EyeEyePlusXXMatrixTerm, vec![0, 1]);
         qmc.add_node(0, handle);
 
@@ -576,6 +572,119 @@ mod cluster_tests {
         debug_assert_eq!(node_value, Some((&vec![true, true], &vec![true, true])));
 
         debug_assert_eq!(qmc.get_initial_state(), vec![true, true]);
+
+        Ok(())
+    }
+
+    struct EyeEyePlusZZMatrixTerm;
+
+    impl MatrixTermData<f64> for EyeEyePlusZZMatrixTerm {
+        fn get_matrix_entry(&self, input: usize, output: usize) -> f64 {
+            unimplemented!()
+        }
+        fn dim(&self) -> usize {
+            4
+        }
+        fn get_weight_change_for_diagonal(
+            &self,
+            old_state: usize,
+            new_state: usize,
+        ) -> Option<(f64, f64)> {
+            unimplemented!()
+        }
+        fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
+            &self,
+            input: usize,
+            output: usize,
+        ) -> usize {
+            0
+        }
+    }
+    impl MatrixTermFlippable<f64> for EyeEyePlusZZMatrixTerm {
+        fn is_maybe_flippable(&self) -> bool {
+            false
+        }
+        fn get_weights_for_inputs_given_output(
+            &self,
+            input_a: usize,
+            input_b: usize,
+            output: usize,
+        ) -> Option<(f64, f64)> {
+            unimplemented!()
+        }
+        fn get_nth_equal_weight_output_for_input_distinct_from_output(
+            &self,
+            input: usize,
+            output: usize,
+            n: usize,
+        ) -> usize {
+            unimplemented!()
+        }
+    }
+    impl TermClusterExpander<bool> for EyeEyePlusZZMatrixTerm {
+        fn output_changes_for_spin_flip<'a, R>(
+            &self,
+            input_state: &[bool],
+            output_state: &[bool],
+            direction: DirectionEnum,
+            relative_index: usize,
+            new_value: &bool,
+            _rng: &mut R,
+        ) -> impl NodeClusterExpansion<bool> + 'a
+        where
+            R: Rng,
+        {
+            let other_direction = direction.swap_direction();
+            let other_index = 1 - relative_index;
+            [
+                (direction, other_index, *new_value),
+                (other_direction, relative_index, *new_value),
+                (other_direction, other_index, *new_value),
+            ]
+        }
+    }
+
+    #[test]
+    fn check_simple_twobody_cluster_wrap_single_op_ising_cluster() -> Result<(), ()> {
+        let mut qmc = GenericQMC::new(2);
+        let handle = qmc.add_term(EyeEyePlusZZMatrixTerm, vec![0, 1]);
+        qmc.add_node(0, handle);
+
+        let mut rng = rand::rng();
+        qmc.cluster_update_starting_from_timeslice(&0, DirectionEnum::Output, 0, true, &mut rng)?;
+
+        let node_value = qmc
+            .get_node(&0)
+            .map(|node| (&node.input_state, &node.output_state));
+        debug_assert_eq!(node_value, Some((&vec![true, true], &vec![true, true])));
+
+        debug_assert_eq!(qmc.get_initial_state(), vec![true, true]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn check_staggered_twobody_cluster() -> Result<(), ()> {
+        let mut qmc = GenericQMC::new(3);
+        let handle_a = qmc.add_term(EyeEyePlusZZMatrixTerm, vec![0, 1]);
+        let handle_b = qmc.add_term(EyeEyePlusZZMatrixTerm, vec![1, 2]);
+        qmc.add_node(0, handle_a);
+        qmc.add_node(2, handle_b);
+
+        let mut rng = rand::rng();
+        qmc.cluster_update_starting_from_timeslice(&0, DirectionEnum::Output, 0, true, &mut rng)?;
+
+        let node_value = qmc
+            .get_node(&0)
+            .map(|node| (&node.input_state, &node.output_state));
+        debug_assert_eq!(node_value, Some((&vec![true, true], &vec![true, true])));
+
+        let node_value = qmc
+            .get_node(&2)
+            .map(|node| (&node.input_state, &node.output_state));
+        debug_assert_eq!(node_value, Some((&vec![true, true], &vec![true, true])));
+
+        debug_assert_eq!(qmc.get_initial_state(), vec![true, true, true]);
 
         Ok(())
     }
