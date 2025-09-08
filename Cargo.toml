@@ -7,7 +7,7 @@ edition = "2024"
 rand = "0.9"
 num-traits = "0.2"
 log = "0.4"
-rustfft = {version = "6", optional = true}
+rustfft = {version = "6.4", optional = true}
 
 [features]
 default = ["autocorrelations"]

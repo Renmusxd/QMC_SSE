@@ -1,5 +1,4 @@
 use crate::qmc::{GenericQMC, MatrixTermData};
-use crate::traits::diagonal_update::DiagonalUpdate;
 use crate::traits::graph_traits::DOFTypeTrait;
 use rustfft;
 use rustfft::FftPlanner;

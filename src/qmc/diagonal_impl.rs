@@ -12,7 +12,7 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> DiagonalUpdate for GenericQMC
     }
 
     fn construct_node(
-        _timeslice: &Self::TimesliceIndex,
+        timeslice: &Self::TimesliceIndex,
         context: GraphContext<Self::DOFType, Link<Self::TimesliceIndex>>,
         term: Self::MatrixTerm,
     ) -> Self::Node {
@@ -22,6 +22,7 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> DiagonalUpdate for GenericQMC
             represents_term: term,
             previous_node_index_for_variable: context.prev_node_slice,
             next_node_index_for_variable: context.next_node_slice,
+            timeslice: *timeslice,
             // Insert node will overwrite these values.
             index_of_entry_in_node_list_for_term: usize::MAX,
             index_of_entry_into_flippable_list: None,
@@ -32,8 +33,7 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> DiagonalUpdate for GenericQMC
 #[cfg(test)]
 mod test_diagonal {
     use super::*;
-    use crate::qmc::{GenericMatrixTerm, GenericMatrixTermEnum};
-    use env_logger::Env;
+    use crate::qmc::GenericMatrixTermEnum;
 
     #[test]
     fn test_run_diagonal() {

@@ -1,15 +1,16 @@
+use crate::qmc::naive_flip_impl::MatrixTermFlippable;
 use crate::traits::graph_traits::{DOFTypeTrait, GraphNode, Link, TimeSlicedGraph};
-use crate::traits::naive_flip_update::NaiveFlipUpdater;
 use num_traits::{One, Zero};
 use std::cmp::max;
 
 #[cfg(feature = "autocorrelations")]
-mod autocorr;
-mod diagonal_impl;
-mod graph_mod_impl;
-mod naive_flip_impl;
-mod navigator_impl;
-mod weight_impl;
+pub mod autocorr;
+pub mod cluster_impl;
+pub mod diagonal_impl;
+pub mod graph_mod_impl;
+pub mod naive_flip_impl;
+pub mod navigator_impl;
+pub mod weight_impl;
 
 pub type MatrixTermHandle = usize;
 
@@ -124,6 +125,7 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
             },
             previous_node_index_for_variable: context.prev_node_slice,
             next_node_index_for_variable: context.next_node_slice,
+            timeslice,
             // Handled by .insert_node call.
             index_of_entry_in_node_list_for_term: usize::MAX,
             index_of_entry_into_flippable_list: None,
@@ -341,6 +343,7 @@ pub struct DoublyLinkedNode<DOF: DOFTypeTrait> {
     represents_term: GenericMatrixTerm,
     previous_node_index_for_variable: Vec<Option<Link<usize>>>,
     next_node_index_for_variable: Vec<Option<Link<usize>>>,
+    timeslice: usize,
 
     // Keep track of where this is being tracked.
     index_of_entry_in_node_list_for_term: usize,
@@ -349,27 +352,13 @@ pub struct DoublyLinkedNode<DOF: DOFTypeTrait> {
 
 pub trait MatrixTermData<T> {
     fn get_matrix_entry(&self, input: usize, output: usize) -> T;
-    fn is_maybe_flippable(&self) -> bool;
     fn dim(&self) -> usize;
     /// None means no change, Some((old, new)) implies there may be a change.
     fn get_weight_change_for_diagonal(&self, old_state: usize, new_state: usize) -> Option<(T, T)>;
-    /// For a fixed output, does changing the inputs result in a change to the matrix entry.
-    fn get_weight_change_for_inputs_given_output(
-        &self,
-        input_a: usize,
-        input_b: usize,
-        output: usize,
-    ) -> Option<(T, T)>;
     fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
         &self,
         input: usize,
         output: usize,
-    ) -> usize;
-    fn get_nth_equal_weight_output_for_input_distinct_from_output(
-        &self,
-        input: usize,
-        output: usize,
-        n: usize,
     ) -> usize;
 }
 
@@ -492,13 +481,6 @@ where
             }
         }
     }
-
-    fn is_maybe_flippable(&self) -> bool {
-        matches!(
-            self,
-            GenericMatrixTermEnum::Uniform { .. } | GenericMatrixTermEnum::UniformSparse { .. }
-        )
-    }
     fn dim(&self) -> usize {
         match self {
             Self::Identity { dim, .. } => *dim,
@@ -534,8 +516,34 @@ where
         }
     }
 
+    fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
+        &self,
+        input: usize,
+        _output: usize,
+    ) -> usize {
+        match self {
+            GenericMatrixTermEnum::Uniform { dim, .. } => *dim - 1,
+            GenericMatrixTermEnum::UniformSparse {
+                outputs_for_input, ..
+            } => outputs_for_input[input].len() - 1,
+            _ => 0,
+        }
+    }
+}
+
+impl<T> MatrixTermFlippable<T> for GenericMatrixTermEnum<T>
+where
+    T: One + Zero + Clone,
+{
+    fn is_maybe_flippable(&self) -> bool {
+        matches!(
+            self,
+            GenericMatrixTermEnum::Uniform { .. } | GenericMatrixTermEnum::UniformSparse { .. }
+        )
+    }
+
     /// For a fixed output, does changing the inputs result in a change to the matrix entry.
-    fn get_weight_change_for_inputs_given_output(
+    fn get_weights_for_inputs_given_output(
         &self,
         input_a: usize,
         input_b: usize,
@@ -570,20 +578,6 @@ where
                     (Ok(_), Err(_)) => Some((T::zero(), data.clone())),
                 }
             }
-        }
-    }
-
-    fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
-        &self,
-        input: usize,
-        _output: usize,
-    ) -> usize {
-        match self {
-            GenericMatrixTermEnum::Uniform { dim, .. } => *dim - 1,
-            GenericMatrixTermEnum::UniformSparse {
-                outputs_for_input, ..
-            } => outputs_for_input[input].len() - 1,
-            _ => 0,
         }
     }
 

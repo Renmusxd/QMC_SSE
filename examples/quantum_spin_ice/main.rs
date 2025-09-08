@@ -52,5 +52,12 @@ fn main() {
         }
     });
 
-    println!("{:?}", autocorr_data.into_iter().map(|x| format!("{:.3}", x)).collect::<Vec<_>>().join(", "));
+    println!(
+        "{:?}",
+        autocorr_data
+            .into_iter()
+            .map(|x| format!("{:.3}", x))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
 }

@@ -21,7 +21,7 @@ where
         n: usize,
     ) -> Vec<Self::DOFType>;
 
-    fn can_node_absorb_flip(
+    fn can_node_absorb_flip_from_top(
         &self,
         node: &Self::Node,
         new_input_state: &[Self::DOFType],
@@ -36,6 +36,14 @@ where
         node: &Self::Node,
         new_state: &[Self::DOFType],
     ) -> Option<f64>;
+
+    fn modify_node_at_timeslice_input_and_output<F>(
+        &mut self,
+        timeslice: &Self::TimesliceIndex,
+        f: F,
+    ) -> Option<&Self::Node>
+    where
+        F: Fn(&mut [Self::DOFType], &mut [Self::DOFType]);
 
     fn naive_flip_update<R>(&mut self, mut rng: R)
     where
@@ -197,7 +205,7 @@ where
             acting_on_dofs[rel_index]
         );
 
-        if graph.can_node_absorb_flip(
+        if graph.can_node_absorb_flip_from_top(
             node_at_timeslice,
             flip_config,
             acting_on_dofs,

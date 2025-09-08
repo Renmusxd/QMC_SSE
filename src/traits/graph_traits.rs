@@ -167,14 +167,6 @@ where
     fn get_next_nodes_for_node(&self, node: &Self::Node)
     -> Vec<Option<Link<Self::TimesliceIndex>>>;
 
-    fn modify_node_at_timeslice_input_and_output<F>(
-        &mut self,
-        timeslice: &Self::TimesliceIndex,
-        f: F,
-    ) -> Option<&Self::Node>
-    where
-        F: Fn(&mut [Self::DOFType], &mut [Self::DOFType]);
-
     fn insert_node<F>(
         &mut self,
         timeslice: &Self::TimesliceIndex,

@@ -1,8 +1,12 @@
-use crate::qmc::{GenericQMC, MatrixTermData};
+use crate::qmc::{GenericMatrixTermEnum, GenericQMC, MatrixTermData};
 use crate::traits::graph_traits::{DOFTypeTrait, GraphNode};
 use crate::traits::naive_flip_update::NaiveFlipUpdater;
+use num_traits::{One, Zero};
 
-impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQMC<DOF, Data> {
+impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQMC<DOF, Data>
+where
+    Data: MatrixTermFlippable<f64>,
+{
     fn num_potential_flip_boundaries(&self) -> usize {
         self.list_of_nodes_with_flippable_outputs.len()
     }
@@ -35,7 +39,7 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQ
         Self::DOFType::index_to_state(new_output, node.get_indices().len())
     }
 
-    fn can_node_absorb_flip(
+    fn can_node_absorb_flip_from_top(
         &self,
         node: &Self::Node,
         new_input_state: &[Self::DOFType],
@@ -51,7 +55,7 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQ
             let output = Self::DOFType::index_dimension_slice(&node.output_state);
             let term_data = &self.all_term_data[node.represents_term.matrix_data_entry];
             term_data
-                .get_weight_change_for_inputs_given_output(old_input_state, new_input_state, output)
+                .get_weights_for_inputs_given_output(old_input_state, new_input_state, output)
                 .is_none()
         }
     }
@@ -69,6 +73,68 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQ
             .get_weight_change_for_diagonal(old_state, new_state)
             .map(|(a, b)| b / a)
     }
+
+    fn modify_node_at_timeslice_input_and_output<F>(
+        &mut self,
+        timeslice: &Self::TimesliceIndex,
+        f: F,
+    ) -> Option<&Self::Node>
+    where
+        F: Fn(&mut [Self::DOFType], &mut [Self::DOFType]),
+    {
+        if let Some(node) = self.time_slices[*timeslice].as_mut() {
+            let inputs = &mut node.input_state;
+            let outputs = &mut node.output_state;
+            f(inputs, outputs);
+
+            // Add to flippable list if now flippable.
+            let matrix_data = &self.all_term_data[node.represents_term.matrix_data_entry];
+            let input = DOF::index_dimension_slice(&node.input_state);
+            let output = DOF::index_dimension_slice(&node.output_state);
+            let n_flippable_outputs = matrix_data
+                .get_number_of_equal_weight_outputs_for_input_distinct_from_output(input, output);
+            if n_flippable_outputs > 0 {
+                if node.index_of_entry_into_flippable_list.is_none() {
+                    let index_to_insert = self.list_of_nodes_with_flippable_outputs.len();
+                    self.list_of_nodes_with_flippable_outputs.push(*timeslice);
+                    node.index_of_entry_into_flippable_list = Some(index_to_insert);
+                }
+            } else if let Some(index_to_remove) =
+                node.index_of_entry_into_flippable_list.as_ref().copied()
+            {
+                node.index_of_entry_into_flippable_list = None;
+                Self::handle_flippable_removal(
+                    index_to_remove,
+                    &mut self.list_of_nodes_with_flippable_outputs,
+                    &mut self.time_slices,
+                );
+            }
+        };
+
+        self.time_slices[*timeslice].as_ref()
+    }
+}
+
+pub trait MatrixTermFlippable<T> {
+    /// Returns true if this term is allowed to be flipped offdiagonal by a change to either the
+    /// input or the output. If both are required to change then the term is more suitable to
+    /// cluster-like updates.
+    fn is_maybe_flippable(&self) -> bool;
+
+    /// For a fixed output, does changing the inputs result in a change to the matrix entry.
+    /// Returns None if there's no change, or else outputs the first and second input weights.
+    fn get_weights_for_inputs_given_output(
+        &self,
+        input_a: usize,
+        input_b: usize,
+        output: usize,
+    ) -> Option<(T, T)>;
+    fn get_nth_equal_weight_output_for_input_distinct_from_output(
+        &self,
+        input: usize,
+        output: usize,
+        n: usize,
+    ) -> usize;
 }
 
 #[cfg(test)]

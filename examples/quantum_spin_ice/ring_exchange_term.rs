@@ -1,4 +1,5 @@
 use QmcSSE::qmc::MatrixTermData;
+use QmcSSE::qmc::naive_flip_impl::MatrixTermFlippable;
 use num_traits::{One, Zero};
 
 #[derive(Clone)]
@@ -28,6 +29,41 @@ impl<T: Clone> RingExchangeData<T> {
     }
 }
 
+impl<T> MatrixTermFlippable<T> for RingExchangeData<T>
+where
+    T: Zero + One + Clone + PartialEq,
+{
+    fn is_maybe_flippable(&self) -> bool {
+        true
+    }
+
+    fn get_weights_for_inputs_given_output(
+        &self,
+        input_a: usize,
+        input_b: usize,
+        output: usize,
+    ) -> Option<(T, T)> {
+        let wa = self.get_matrix_entry(input_a, output);
+        let wb = self.get_matrix_entry(input_b, output);
+        if wa == wb { None } else { Some((wa, wb)) }
+    }
+
+    fn get_nth_equal_weight_output_for_input_distinct_from_output(
+        &self,
+        input: usize,
+        output: usize,
+        n: usize,
+    ) -> usize {
+        debug_assert_eq!(n, 0);
+        debug_assert!(input == self.exchangeable_state_a || input == self.exchangeable_state_b);
+        if output == self.exchangeable_state_a {
+            self.exchangeable_state_b
+        } else {
+            self.exchangeable_state_a
+        }
+    }
+}
+
 impl<T> MatrixTermData<T> for RingExchangeData<T>
 where
     T: Zero + One + Clone + PartialEq,
@@ -44,10 +80,6 @@ where
         }
     }
 
-    fn is_maybe_flippable(&self) -> bool {
-        true
-    }
-
     fn dim(&self) -> usize {
         self.dim
     }
@@ -60,17 +92,6 @@ where
         None
     }
 
-    fn get_weight_change_for_inputs_given_output(
-        &self,
-        input_a: usize,
-        input_b: usize,
-        output: usize,
-    ) -> Option<(T, T)> {
-        let wa = self.get_matrix_entry(input_a, output);
-        let wb = self.get_matrix_entry(input_b, output);
-        if wa == wb { None } else { Some((wa, wb)) }
-    }
-
     fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
         &self,
         input: usize,
@@ -80,21 +101,6 @@ where
             1
         } else {
             0
-        }
-    }
-
-    fn get_nth_equal_weight_output_for_input_distinct_from_output(
-        &self,
-        input: usize,
-        output: usize,
-        n: usize,
-    ) -> usize {
-        debug_assert_eq!(n, 0);
-        debug_assert!(input == self.exchangeable_state_a || input == self.exchangeable_state_b);
-        if output == self.exchangeable_state_a {
-            self.exchangeable_state_b
-        } else {
-            self.exchangeable_state_a
         }
     }
 }

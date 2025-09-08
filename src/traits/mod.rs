@@ -1,3 +1,4 @@
+pub mod cluster_update;
 pub mod diagonal_update;
 pub mod graph_traits;
 pub mod graph_weights;
