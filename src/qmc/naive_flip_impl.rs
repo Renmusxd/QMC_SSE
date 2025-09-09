@@ -36,7 +36,7 @@ where
         let output = Self::DOFType::index_dimension_slice(&node.output_state);
         let new_output =
             term_data.get_nth_equal_weight_output_for_input_distinct_from_output(input, output, n);
-        Self::DOFType::index_to_state(new_output, node.get_indices().len())
+        Self::DOFType::index_to_state_vec(new_output, node.get_indices().len())
     }
 
     fn can_node_absorb_flip_from_top(

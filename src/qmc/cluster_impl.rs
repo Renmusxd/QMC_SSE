@@ -293,7 +293,7 @@ where
     }
 }
 
-trait TermClusterExpander<DOF> {
+pub trait TermClusterExpander<DOF> {
     fn output_changes_for_spin_flip<'a, R>(
         &self,
         input_state: &[DOF],
@@ -462,13 +462,7 @@ mod cluster_tests {
         fn dim(&self) -> usize {
             4
         }
-        fn get_weight_change_for_diagonal(
-            &self,
-            old_state: usize,
-            new_state: usize,
-        ) -> Option<(f64, f64)> {
-            unimplemented!()
-        }
+
         fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
             &self,
             input: usize,
@@ -584,13 +578,6 @@ mod cluster_tests {
         }
         fn dim(&self) -> usize {
             4
-        }
-        fn get_weight_change_for_diagonal(
-            &self,
-            old_state: usize,
-            new_state: usize,
-        ) -> Option<(f64, f64)> {
-            unimplemented!()
         }
         fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
             &self,

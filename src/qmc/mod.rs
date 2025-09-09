@@ -353,13 +353,19 @@ pub struct DoublyLinkedNode<DOF: DOFTypeTrait> {
 pub trait MatrixTermData<T> {
     fn get_matrix_entry(&self, input: usize, output: usize) -> T;
     fn dim(&self) -> usize;
-    /// None means no change, Some((old, new)) implies there may be a change.
-    fn get_weight_change_for_diagonal(&self, old_state: usize, new_state: usize) -> Option<(T, T)>;
     fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
         &self,
         input: usize,
         output: usize,
     ) -> usize;
+
+    /// None means no change, Some((old, new)) implies there may be a change.
+    /// Can be overridden for improved performance.
+    fn get_weight_change_for_diagonal(&self, old_state: usize, new_state: usize) -> Option<(T, T)> {
+        let old_weight = self.get_matrix_entry(old_state, old_state);
+        let new_weight = self.get_matrix_entry(new_state, new_state);
+        Some((old_weight, new_weight))
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]

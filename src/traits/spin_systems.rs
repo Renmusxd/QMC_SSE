@@ -55,8 +55,4 @@ impl<const N: usize> DOFTypeTrait for Spin<N> {
     fn iterate_through_values() -> impl Iterator<Item = Self> {
         (0..N).map(Self::new)
     }
-
-    fn index_to_state(dof_index: usize, n_dof: usize) -> Vec<Self> {
-        todo!()
-    }
 }

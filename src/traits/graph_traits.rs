@@ -92,7 +92,7 @@ pub trait GraphNode {
     }
 }
 
-pub trait DOFTypeTrait: Eq + PartialEq + Clone + Default + Debug {
+pub trait DOFTypeTrait: Eq + PartialEq + Clone + Copy + Default + Debug {
     fn local_dimension() -> usize;
 
     fn to_index(&self) -> usize;
@@ -117,9 +117,20 @@ pub trait DOFTypeTrait: Eq + PartialEq + Clone + Default + Debug {
         Self::index_dimension(dofs.iter().cloned())
     }
 
-    fn index_to_state(mut dof_index: usize, n_dof: usize) -> Vec<Self> {
+    fn index_to_state_vec(mut dof_index: usize, n_dof: usize) -> Vec<Self> {
         let d = Self::local_dimension();
-        let mut output = vec![Self::from_index(0); n_dof];
+        let mut output = vec![Self::default(); n_dof];
+
+        for o in output.iter_mut() {
+            *o = Self::from_index(dof_index % d);
+            dof_index /= d;
+        }
+        output
+    }
+
+    fn index_to_state<const N: usize>(mut dof_index: usize) -> [Self; N] {
+        let d = Self::local_dimension();
+        let mut output = [Self::default(); N];
 
         for o in output.iter_mut() {
             *o = Self::from_index(dof_index % d);
