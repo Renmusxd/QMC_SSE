@@ -10,8 +10,8 @@ use crate::traits::graph_traits::DOFTypeTrait;
 
 #[derive(Debug, Clone, Copy)]
 pub enum TFIMTerm<T> {
-    Ising(T),
-    Field(T)
+    ZZ(T),
+    X(T)
 }
 
 impl<T> MatrixTermData<T> for TFIMTerm<T>
@@ -20,25 +20,25 @@ where
 {
     fn get_matrix_entry(&self, input: usize, output: usize) -> T {
         match self {
-            TFIMTerm::Ising(jj) => {
+            TFIMTerm::ZZ(jj) => {
                 let weight = get_ising_weight(input, output, jj);
                 weight.unwrap_or(T::zero())
             }
-            TFIMTerm::Field(gamma) => gamma.clone(),
+            TFIMTerm::X(gamma) => gamma.clone(),
         }
     }
 
     fn dim(&self) -> usize {
         match self {
-            TFIMTerm::Ising(_) => 4,
-            TFIMTerm::Field(_) => 2,
+            TFIMTerm::ZZ(_) => 4,
+            TFIMTerm::X(_) => 2,
         }
     }
 
     fn get_weight_change_for_diagonal(&self, old_state: usize, new_state: usize) -> Option<(T, T)> {
         match self {
-            TFIMTerm::Field(_) => None,
-            TFIMTerm::Ising(jj) => {
+            TFIMTerm::X(_) => None,
+            TFIMTerm::ZZ(jj) => {
                 let old_state_arr = bool::index_to_state::<2>(old_state);
                 let old_ferro = old_state_arr[0] == old_state_arr[1];
                 let new_state_arr = bool::index_to_state::<2>(new_state);
@@ -62,8 +62,8 @@ where
 
     fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(&self, _input: usize, _output: usize) -> usize {
         match self {
-            TFIMTerm::Ising(_) => 0,
-            TFIMTerm::Field(_) => 1,
+            TFIMTerm::ZZ(_) => 0,
+            TFIMTerm::X(_) => 1,
         }
     }
 }
@@ -71,12 +71,12 @@ where
 impl<T> MatrixTermFlippable<T> for TFIMTerm<T> where T: Zero + Clone + Signed
 {
     fn is_maybe_flippable(&self) -> bool {
-        matches!(self, TFIMTerm::Field(_))
+        matches!(self, TFIMTerm::X(_))
     }
 
     fn get_weights_for_inputs_given_output(&self, input_a: usize, input_b: usize, output: usize) -> Option<(T, T)> {
         match self {
-            TFIMTerm::Ising(jj) => {
+            TFIMTerm::ZZ(jj) => {
                 if input_a == input_b {
                     None
                 } else {
@@ -91,7 +91,7 @@ impl<T> MatrixTermFlippable<T> for TFIMTerm<T> where T: Zero + Clone + Signed
                     }
                 }
             }
-            TFIMTerm::Field(_) => {
+            TFIMTerm::X(_) => {
                 None
             }
         }
@@ -99,8 +99,8 @@ impl<T> MatrixTermFlippable<T> for TFIMTerm<T> where T: Zero + Clone + Signed
 
     fn get_nth_equal_weight_output_for_input_distinct_from_output(&self, _input: usize, output: usize, n: usize) -> usize {
         match self {
-            TFIMTerm::Ising(_) =>  unimplemented!("There are no equal weight outputs for a given input."),
-            TFIMTerm::Field(_) => {
+            TFIMTerm::ZZ(_) =>  unimplemented!("There are no equal weight outputs for a given input."),
+            TFIMTerm::X(_) => {
                 debug_assert_eq!(n, 0);
                 1 - output
             }
@@ -125,8 +125,8 @@ impl<T> TermClusterExpander<bool> for TFIMTerm<T> {
         ];
 
         let num_to_select = match self {
-            TFIMTerm::Ising(_) => 3,
-            TFIMTerm::Field(_) => 0,
+            TFIMTerm::ZZ(_) => 3,
+            TFIMTerm::X(_) => 0,
         };
 
         ising_array.into_iter().take(num_to_select)

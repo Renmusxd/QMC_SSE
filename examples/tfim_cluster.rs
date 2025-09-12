@@ -6,20 +6,14 @@ use qmc_sse::traits::diagonal_update::DiagonalUpdate;
 
 fn main() {
     let n = 5;
-
     let bond_j = 1.0;
     let gamma = 1.0;
 
     let mut qmc = GenericQMC::<bool,_>::new(n);
 
     for i in 0..n {
-        qmc.add_term(
-            TFIMTerm::Field(gamma),
-            vec![i],
-        );
-    }
-    for i in 0..n {
-        qmc.add_term(TFIMTerm::Ising(bond_j), vec![i, (i + 1) % n]);
+        qmc.add_term(TFIMTerm::X(gamma),vec![i],);
+        qmc.add_term(TFIMTerm::ZZ(bond_j), vec![i, (i + 1) % n]);
     }
 
     let beta = 16.0;
