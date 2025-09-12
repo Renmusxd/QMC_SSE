@@ -8,8 +8,7 @@ use qmc_sse::traits::naive_flip_update::NaiveFlipUpdater;
 fn main() {
     let l = 3;
 
-    let mut qmc = GenericQMC::<bool, RingExchangeData<f64>>::new_with_state(vec![false; l]);
-
+    let mut qmc = GenericQMC::new_with_state(vec![false; l]);
     let term = RingExchangeData::new(
          1.0,
          0b00,

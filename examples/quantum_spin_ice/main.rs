@@ -6,7 +6,6 @@ use qmc_sse::traits::diagonal_update::DiagonalUpdate;
 use qmc_sse::traits::naive_flip_update::NaiveFlipUpdater;
 use rand::SeedableRng;
 use rand::prelude::SmallRng;
-use qmc_sse::terms::ring_exchange::RingExchangeData;
 
 fn main() {
     let l = 4;
@@ -16,7 +15,7 @@ fn main() {
     let initial_state = pyrochlore_helper.get_initial_state();
     let v = initial_state.len();
 
-    let mut qmc = GenericQMC::<bool, RingExchangeData<f64>>::new_with_state(initial_state);
+    let mut qmc = GenericQMC::new_with_state(initial_state);
 
     for (term, indices) in pyrochlore_helper.get_terms() {
         qmc.add_term(term, indices);
