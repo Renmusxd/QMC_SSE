@@ -1,6 +1,6 @@
 use std::fmt::Debug;
-use std::ops::{Add, Neg, Sub};
-use num_traits::{One, Signed, Zero};
+use std::ops::{Add, Neg};
+use num_traits::{Signed, Zero};
 use rand::Rng;
 use crate::qmc::cluster_impl::TermClusterExpander;
 use crate::qmc::MatrixTermData;
@@ -8,6 +8,7 @@ use crate::qmc::naive_flip_impl::MatrixTermFlippable;
 use crate::traits::cluster_update::{DirectionEnum, NodeClusterExpansion};
 use crate::traits::graph_traits::DOFTypeTrait;
 
+#[derive(Debug, Clone, Copy)]
 pub enum TFIMTerm<T> {
     Ising(T),
     Field(T)
@@ -59,7 +60,7 @@ where
         }
     }
 
-    fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(&self, input: usize, output: usize) -> usize {
+    fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(&self, _input: usize, _output: usize) -> usize {
         match self {
             TFIMTerm::Ising(_) => 0,
             TFIMTerm::Field(_) => 1,
@@ -112,20 +113,23 @@ impl<T> TermClusterExpander<bool> for TFIMTerm<T> {
     where
         R: Rng
     {
-        match self {
-            TFIMTerm::Ising(_) => {
-                let other_direction = direction.swap_direction();
-                let other_index = 1 - relative_index;
-                vec![
-                    (direction, other_index, *new_value),
-                    (other_direction, relative_index, *new_value),
-                    (other_direction, other_index, *new_value),
-                ]
-            }
-            TFIMTerm::Field(_) => {
-                vec![]
-            }
-        }
+        // Rather than return one of two vectors, just construct a small array and return the
+        // first n={0, 3} objects.
+        // The compiler may be able to optimize this since there are no heap interactions.
+        let other_direction = direction.swap_direction();
+        let other_index = 1 - relative_index;
+        let ising_array = [
+            (direction, other_index, *new_value),
+            (other_direction, relative_index, *new_value),
+            (other_direction, other_index, *new_value),
+        ];
+
+        let num_to_select = match self {
+            TFIMTerm::Ising(_) => 3,
+            TFIMTerm::Field(_) => 0,
+        };
+
+        ising_array.into_iter().take(num_to_select)
     }
 }
 

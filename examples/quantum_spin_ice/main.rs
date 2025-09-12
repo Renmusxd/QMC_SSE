@@ -3,9 +3,9 @@ pub mod ring_exchange_term;
 
 use crate::pyrochlore_helper::PyrochloreLatticeHelper;
 use crate::ring_exchange_term::RingExchangeData;
-use QmcSSE::qmc::{GenericQMC, MatrixTermData};
-use QmcSSE::traits::diagonal_update::DiagonalUpdate;
-use QmcSSE::traits::naive_flip_update::NaiveFlipUpdater;
+use qmc_sse::qmc::{GenericQMC, MatrixTermData};
+use qmc_sse::traits::diagonal_update::DiagonalUpdate;
+use qmc_sse::traits::naive_flip_update::NaiveFlipUpdater;
 use rand::SeedableRng;
 use rand::prelude::SmallRng;
 

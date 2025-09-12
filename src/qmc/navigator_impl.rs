@@ -99,14 +99,3 @@ impl<DOF: DOFTypeTrait> GraphNode for DoublyLinkedNode<DOF> {
             .ok_or(())
     }
 }
-
-#[cfg(test)]
-mod navigator_tests {
-    use super::*;
-    use crate::qmc::GenericQMC;
-
-    #[test]
-    fn test_add_node() {
-        let mut qmc = GenericQMC::<bool>::new(3);
-    }
-}

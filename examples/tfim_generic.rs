@@ -1,14 +1,15 @@
 use rand::prelude::*;
 use std::env::var;
 
-use QmcSSE::qmc::{GenericMatrixTerm, GenericMatrixTermEnum, GenericQMC};
-use QmcSSE::traits::diagonal_update::DiagonalUpdate;
-use QmcSSE::traits::naive_flip_update::NaiveFlipUpdater;
+use qmc_sse::qmc::{GenericQMC};
+use qmc_sse::terms::generic::GenericMatrixTermEnum;
+use qmc_sse::traits::diagonal_update::DiagonalUpdate;
+use qmc_sse::traits::naive_flip_update::NaiveFlipUpdater;
 
 fn main() {
     let n = 3;
 
-    let mut qmc = GenericQMC::<bool>::new(n);
+    let mut qmc = GenericQMC::<bool, _>::new(n);
 
     for i in 0..n {
         qmc.add_term(

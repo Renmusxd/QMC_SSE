@@ -26,7 +26,7 @@ where
         relative_index: usize,
         new_value: Self::DOFType,
         rng: &mut R,
-    ) -> Result<bool, ()>
+    ) -> Result<bool, String>
     where
         R: Rng,
     {
@@ -35,7 +35,7 @@ where
         let mut cluster = self.get_cluster_manager();
 
         // We have to flip the spin to get started
-        let node = self.get_node(timeslice).ok_or(())?;
+        let node = self.get_node(timeslice).ok_or("Timeslice does not contain node.".to_string())?;
         let val = cluster.push_cluster_leg(Leg::new(node, direction, relative_index), new_value);
         let leg_changes = self.output_changes_for_spin_flip_with_default_state(
             node,
@@ -50,7 +50,7 @@ where
         }
 
         while let Some((leg, value)) = cluster.pop_cluster_leg() {
-            let value = value.clone();
+            let value = *value;
             debug_assert_eq!(
                 Some(&value),
                 cluster.get_leg_value(&leg),
@@ -61,7 +61,7 @@ where
             let leg = self.follow_leg(leg);
             if let FollowResult::WrapBoundary(leg) = &leg {
                 let absolute_index = &leg.get_node().get_indices()[leg.get_relative_index()];
-                cluster.set_initial_state_value(absolute_index, value.clone());
+                cluster.set_initial_state_value(absolute_index, value);
             }
             let leg = leg.get_value();
 
@@ -196,7 +196,7 @@ where
 
     fn get_cluster_manager<'a>(&self) -> Self::ClusterManager<'a>;
 
-    fn apply_cluster_changes<'a>(&mut self, manager: Self::ChangeRecord);
+    fn apply_cluster_changes(&mut self, manager: Self::ChangeRecord);
 }
 
 pub trait HasTimeslice<T> {
@@ -209,7 +209,7 @@ pub enum FollowResult<T> {
 }
 
 impl<T> FollowResult<T> {
-    fn new(t: T, wrap: bool) -> Self {
+    pub fn new(t: T, wrap: bool) -> Self {
         if wrap {
             Self::WrapBoundary(t)
         } else {
@@ -217,14 +217,14 @@ impl<T> FollowResult<T> {
         }
     }
 
-    fn get_value(self) -> T {
+    pub fn get_value(self) -> T {
         match self {
             FollowResult::WrapBoundary(x) => x,
             FollowResult::WithinBulk(x) => x,
         }
     }
 
-    fn value_ref(&self) -> &T {
+    pub fn value_ref(&self) -> &T {
         match self {
             FollowResult::WrapBoundary(x) => x,
             FollowResult::WithinBulk(x) => x,
@@ -326,14 +326,14 @@ pub enum WeightChange {
 }
 
 impl WeightChange {
-    fn get_factor_mut(&mut self) -> Option<&mut f64> {
+    pub fn get_factor_mut(&mut self) -> Option<&mut f64> {
         match self {
             WeightChange::NoChange | WeightChange::ZeroWeight => None,
             WeightChange::Factor(x) => Some(x),
         }
     }
 
-    fn zero_weight(&self) -> bool {
+    pub fn zero_weight(&self) -> bool {
         matches!(self, WeightChange::ZeroWeight | WeightChange::Factor(0.0))
     }
 }

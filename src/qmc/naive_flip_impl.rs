@@ -1,7 +1,6 @@
-use crate::qmc::{GenericMatrixTermEnum, GenericQMC, MatrixTermData};
+use crate::qmc::{GenericQMC, MatrixTermData};
 use crate::traits::graph_traits::{DOFTypeTrait, GraphNode};
 use crate::traits::naive_flip_update::NaiveFlipUpdater;
-use num_traits::{One, Zero};
 
 impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQMC<DOF, Data>
 where
@@ -139,13 +138,13 @@ pub trait MatrixTermFlippable<T> {
 
 #[cfg(test)]
 mod test_naive_flip_implementation {
+    use crate::terms::generic::GenericMatrixTermEnum;
     use super::*;
-    use crate::qmc::GenericMatrixTermEnum;
     use crate::traits::graph_traits::{GraphStateNavigator, TimeSlicedGraph};
 
     #[test]
     fn test_simple_naive_flip() {
-        let mut qmc = GenericQMC::<bool>::new(1);
+        let mut qmc = GenericQMC::<bool, _>::new(1);
         let handle = qmc.add_term(GenericMatrixTermEnum::make_uniform(1.0, 2), vec![0]);
 
         qmc.add_node(0, handle);
@@ -176,7 +175,7 @@ mod test_naive_flip_implementation {
 
     #[test]
     fn test_simple_naive_flip_single_operator() {
-        let mut qmc = GenericQMC::<bool>::new(1);
+        let mut qmc = GenericQMC::<bool, _>::new(1);
         qmc.set_minimum_timeslices(16);
         let handle = qmc.add_term(GenericMatrixTermEnum::make_uniform(1.0, 2), vec![0]);
 
@@ -203,7 +202,7 @@ mod test_naive_flip_implementation {
 
     #[test]
     fn test_naive_flip_pass_through() {
-        let mut qmc = GenericQMC::<bool>::new(1);
+        let mut qmc = GenericQMC::<bool, _>::new(1);
         let handle = qmc.add_term(GenericMatrixTermEnum::make_uniform(1.0, 2), vec![0]);
         let handle_ident = qmc.add_term(GenericMatrixTermEnum::make_identity(2), vec![0]);
 
@@ -277,7 +276,7 @@ mod test_naive_flip_implementation {
 
     #[test]
     fn test_flip_through_two_dof() {
-        let mut qmc = GenericQMC::<bool>::new(2);
+        let mut qmc = GenericQMC::<bool, _>::new(2);
         let handle = qmc.add_term(GenericMatrixTermEnum::make_uniform(1.0, 2), vec![0]);
         let handle_ident = qmc.add_term(GenericMatrixTermEnum::make_identity(4), vec![0, 1]);
 
@@ -318,7 +317,7 @@ mod test_naive_flip_implementation {
 
     #[test]
     fn test_flip_two_dof() {
-        let mut qmc = GenericQMC::<bool>::new(2);
+        let mut qmc = GenericQMC::<bool, _>::new(2);
         let handle = qmc.add_term(GenericMatrixTermEnum::make_uniform(1.0, 4), vec![0, 1]);
 
         qmc.add_node(0, handle);
@@ -349,7 +348,7 @@ mod test_naive_flip_implementation {
 
     #[test]
     fn test_flip_two_dof_with_passthrough() {
-        let mut qmc = GenericQMC::<bool>::new(2);
+        let mut qmc = GenericQMC::<bool, _>::new(2);
         let flip_term = GenericMatrixTermEnum::make_uniform(1.0, 4);
 
         assert_eq!(
@@ -397,7 +396,7 @@ mod test_naive_flip_implementation {
 
     #[test]
     fn test_sparse_uniform_flip() {
-        let mut qmc = GenericQMC::<bool>::new(2);
+        let mut qmc = GenericQMC::<bool, _>::new(2);
 
         let flip_term = GenericMatrixTermEnum::make_sparse_uniform(
             1.0,
@@ -452,7 +451,7 @@ mod test_naive_flip_implementation {
 
     #[test]
     fn test_flip_ends() {
-        let mut qmc = GenericQMC::<bool>::new(2);
+        let mut qmc = GenericQMC::<bool, _>::new(2);
         let flip_term = GenericMatrixTermEnum::make_uniform(1.0, 2);
 
         assert_eq!(

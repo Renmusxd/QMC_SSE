@@ -1,5 +1,5 @@
-use QmcSSE::qmc::MatrixTermData;
-use QmcSSE::qmc::naive_flip_impl::MatrixTermFlippable;
+use qmc_sse::qmc::MatrixTermData;
+use qmc_sse::qmc::naive_flip_impl::MatrixTermFlippable;
 use num_traits::{One, Zero};
 
 #[derive(Clone)]

@@ -47,7 +47,7 @@ where
                         .iter()
                         .map(|i| {
                             let i = i.clone().into();
-                            incoming_state[i].clone()
+                            incoming_state[i]
                         })
                         .collect::<Vec<_>>();
 
@@ -118,7 +118,7 @@ where
                 node.iterate_over_outputs().enumerate().for_each(
                     |(rel_index, (global_index, dof_state, _))| {
                         let global_index = global_index.clone().into();
-                        incoming_state[global_index] = dof_state.clone();
+                        incoming_state[global_index] = *dof_state;
                         last_nodes[global_index] = Some(Link {
                             timeslice: t.clone(),
                             relative_index: rel_index,

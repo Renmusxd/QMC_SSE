@@ -1,23 +1,26 @@
 use rand::prelude::*;
-use std::env::var;
 
-use QmcSSE::qmc::{GenericMatrixTerm, GenericMatrixTermEnum, GenericQMC};
-use QmcSSE::traits::diagonal_update::DiagonalUpdate;
-use QmcSSE::traits::naive_flip_update::NaiveFlipUpdater;
+use qmc_sse::qmc::GenericQMC;
+use qmc_sse::terms::tfim::TFIMTerm;
+use qmc_sse::traits::diagonal_update::DiagonalUpdate;
+use qmc_sse::traits::naive_flip_update::NaiveFlipUpdater;
 
 fn main() {
-    let n = 3;
+    let n = 5;
 
-    let mut qmc = GenericQMC::<bool>::new(n);
+    let bond_j = 1.0;
+    let gamma = 1.0;
+
+    let mut qmc = GenericQMC::<bool,_>::new(n);
 
     for i in 0..n {
         qmc.add_term(
-            GenericMatrixTermEnum::make_diagonal(vec![1.0, 0.0, 0.0, 1.0]),
-            vec![i, (i + 1) % n],
+            TFIMTerm::Field(gamma),
+            vec![i],
         );
     }
     for i in 0..n {
-        qmc.add_term(GenericMatrixTermEnum::make_uniform(1.0, 2), vec![i]);
+        qmc.add_term(TFIMTerm::Ising(bond_j), vec![i, (i + 1) % n]);
     }
 
     let beta = 16.0;

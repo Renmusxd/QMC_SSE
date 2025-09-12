@@ -141,12 +141,10 @@ where
         };
 
         // MH step if needed.
-        if let Some(w) = weight_change_on_flip {
-            if w < 1.0 {
-                let should_flip = rng.sample(rand::distr::Uniform::new(0.0, 1.0).unwrap()) < w;
-                if !should_flip {
-                    return;
-                }
+        if let Some(w) = weight_change_on_flip && w < 1.0 {
+            let should_flip = rng.sample(rand::distr::Uniform::new(0.0, 1.0).unwrap()) < w;
+            if !should_flip {
+                return;
             }
         }
 
@@ -233,7 +231,7 @@ where
                         node_at_timeslice.get_indices()[link.relative_index],
                         acting_on_dofs[i]
                     );
-                    node_state[link.relative_index] = val.clone();
+                    node_state[link.relative_index] = *val;
                 });
             let weight_change =
                 graph.get_relative_weight_change_for_new_state(node_at_timeslice, &node_state);
@@ -283,7 +281,7 @@ fn edit_dof_from_starting_point<G>(
             .iter_mut()
             .zip(flip_config.iter())
             .for_each(|(x, y)| {
-                *x = y.clone();
+                *x = *y;
             })
     });
 
@@ -300,7 +298,7 @@ fn edit_dof_from_starting_point<G>(
             .zip(flip_config.iter())
             .for_each(|((global_dof, link), val)| {
                 *link = graph.get_first_timeslice_for_dof(global_dof).cloned();
-                graph.set_initial_state(global_dof, val.clone());
+                graph.set_initial_state(global_dof, *val);
             });
     }
 
@@ -319,8 +317,8 @@ fn edit_dof_from_starting_point<G>(
                         continue;
                     }
 
-                    input[link.relative_index] = flip_value.clone();
-                    output[link.relative_index] = flip_value.clone();
+                    input[link.relative_index] = *flip_value;
+                    output[link.relative_index] = *flip_value;
                 }
             }
         });
@@ -350,14 +348,14 @@ fn edit_dof_from_starting_point<G>(
                 .zip(flip_config.iter())
                 .for_each(|((global_dof, link), val)| {
                     *link = graph.get_first_timeslice_for_dof(global_dof).cloned();
-                    graph.set_initial_state(global_dof, val.clone());
+                    graph.set_initial_state(global_dof, *val);
                 });
         }
     }
 
     graph.modify_node_at_timeslice_input_and_output(stop_at_and_edit_input_of, |input, _| {
         input.iter_mut().zip(flip_config.iter()).for_each(|(x, y)| {
-            *x = y.clone();
+            *x = *y;
         })
     });
 }

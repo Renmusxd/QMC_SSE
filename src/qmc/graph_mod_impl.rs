@@ -209,12 +209,12 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQM
                     let n = self.time_slices[link.timeslice]
                         .as_ref()
                         .expect("Pointer to previous node finds empty timeslice.");
-                    let s = n.output_state[link.relative_index].clone();
+                    let s = n.output_state[link.relative_index];
                     let b = Some(link.clone());
                     let f = n.next_node_index_for_variable[link.relative_index].clone();
                     (s, b, f)
                 } else {
-                    let s = self.initial_state[global_index].clone();
+                    let s = self.initial_state[global_index];
                     let b = None;
                     let f = self.first_nodes_for_dofs[global_index].clone();
                     (s, b, f)
@@ -238,7 +238,7 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQM
 
                 // Now modify the nodes to point to the new spot.
                 let link_to_me = Some(Link {
-                    timeslice: timeslice.clone(),
+                    timeslice: *timeslice,
                     relative_index,
                 });
                 // Modify previous node or head
@@ -332,12 +332,12 @@ impl<DOF: DOFTypeTrait> LinkedGraphNode for DoublyLinkedNode<DOF> {
 #[cfg(test)]
 mod test_modify_graph {
     use super::*;
-    use crate::qmc::{GenericMatrixTerm, GenericMatrixTermEnum};
+    use crate::terms::generic::GenericMatrixTermEnum;
     use crate::traits::graph_traits::GraphStateNavigator;
 
     #[test]
     fn test_modify_graph_simple() {
-        let mut qmc = GenericQMC::<bool>::new(3);
+        let mut qmc = GenericQMC::<bool, _>::new(3);
         let term = qmc.add_term(GenericMatrixTermEnum::Identity { dim: 2 }, vec![0]);
         qmc.add_node(0, term);
 
@@ -350,7 +350,7 @@ mod test_modify_graph {
 
     #[test]
     fn test_modify_graph_chain() {
-        let mut qmc = GenericQMC::<bool>::new(3);
+        let mut qmc = GenericQMC::<bool, _>::new(3);
 
         for i in 0..3 {
             let vars = (0..i + 1).collect::<Vec<_>>();

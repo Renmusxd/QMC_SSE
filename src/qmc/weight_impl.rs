@@ -1,9 +1,9 @@
-use crate::qmc::{GenericMatrixTerm, GenericQMC, MatrixTermData};
+use crate::qmc::{MatrixTerm, GenericQMC, MatrixTermData};
 use crate::traits::graph_traits::DOFTypeTrait;
 use crate::traits::graph_weights::{GraphWeight, MatrixTermTrait};
 
 impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> GraphWeight for GenericQMC<DOF, Data> {
-    type MatrixTerm = GenericMatrixTerm;
+    type MatrixTerm = MatrixTerm;
 
     fn get_possible_terms(&self) -> &[Self::MatrixTerm] {
         &self.all_terms
@@ -30,7 +30,7 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> GraphWeight for GenericQMC<DO
     }
 }
 
-impl MatrixTermTrait for GenericMatrixTerm {
+impl MatrixTermTrait for MatrixTerm {
     type Index = usize;
 
     fn get_indices_acted_on(&self) -> &[Self::Index] {
@@ -41,7 +41,8 @@ impl MatrixTermTrait for GenericMatrixTerm {
 #[cfg(test)]
 mod weight_tests {
     use super::*;
-    use crate::qmc::{DoublyLinkedNode, GenericMatrixTermEnum, GenericQMC};
+    use crate::qmc::{ GenericQMC};
+    use crate::terms::generic::GenericMatrixTermEnum;
     use crate::traits::graph_traits::TimeSlicedGraph;
 
     #[test]
@@ -55,7 +56,7 @@ mod weight_tests {
 
     #[test]
     fn test_get_matrix_terms() {
-        let mut qmc = GenericQMC::<bool>::new(3);
+        let mut qmc = GenericQMC::<bool, _>::new(3);
 
         qmc.add_term(
             GenericMatrixTermEnum::make_diagonal(vec![1.0, 2.0]),
@@ -66,7 +67,7 @@ mod weight_tests {
 
     #[test]
     fn add_node_connected_to_matrix_term() {
-        let mut qmc = GenericQMC::<bool>::new(3);
+        let mut qmc = GenericQMC::<bool, _>::new(3);
         let term_handle = qmc.add_term(
             GenericMatrixTermEnum::make_diagonal(vec![1.0, 2.0]),
             vec![0],

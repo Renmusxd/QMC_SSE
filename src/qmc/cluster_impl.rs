@@ -1,22 +1,21 @@
-use crate::qmc::{DoublyLinkedNode, GenericMatrixTerm, GenericQMC, MatrixTermData};
+use crate::qmc::{DoublyLinkedNode, GenericQMC, MatrixTermData};
 use crate::traits::cluster_update::{
     ClusterManager, ClusterUpdater, DirectionEnum, HasTimeslice, Leg, NodeClusterExpansion,
 };
 use crate::traits::graph_traits::{DOFTypeTrait, GraphNode};
 use rand::Rng;
 use std::collections::HashMap;
-use std::collections::hash_map::OccupiedEntry;
 
 impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> ClusterUpdater for GenericQMC<DOF, Data>
 where
     Data: TermClusterExpander<DOF>,
     DOF: 'static,
 {
-    type ClusterManager<'a> = GenericClusterManager<'a, Self::DOFType>;
     type ChangeRecord = (
         HashMap<usize, Self::DOFType>,
         HashMap<usize, ManagerData<Self::DOFType>>,
     );
+    type ClusterManager<'a> = GenericClusterManager<'a, Self::DOFType>;
 
     fn output_changes_for_spin_flip<R>(
         &self,
@@ -195,14 +194,14 @@ where
     fn get_input_state(&self, node: &'a DoublyLinkedNode<T>) -> Option<&[T]> {
         let timeslice = node.get_timeslice();
         self.timeslice_to_data
-            .get(&timeslice)
+            .get(timeslice)
             .map(|data| data.get_input())
     }
 
     fn get_output_state(&self, node: &'a DoublyLinkedNode<T>) -> Option<&[T]> {
         let timeslice = node.get_timeslice();
         self.timeslice_to_data
-            .get(&timeslice)
+            .get(timeslice)
             .map(|data| data.get_output())
     }
 
@@ -272,7 +271,6 @@ where
             let last_leg = self
                 .cluster_legs
                 .last()
-                .map(|l| l)
                 .expect("There must be a leg at the end");
             let timeslice = *last_leg.get_node().get_timeslice();
             let direction = last_leg.get_direction();
@@ -387,7 +385,7 @@ mod cluster_tests {
     }
 
     #[test]
-    fn check_simple_cluster() -> Result<(), ()> {
+    fn check_simple_cluster() -> Result<(), String> {
         let mut qmc = GenericQMC::new(1);
         let handle = qmc.add_term(EyePlusXMatrixTerm, vec![0]);
         qmc.add_node(0, handle);
@@ -410,7 +408,7 @@ mod cluster_tests {
     }
 
     #[test]
-    fn check_simple_cluster_wrap() -> Result<(), ()> {
+    fn check_simple_cluster_wrap() -> Result<(), String> {
         let mut qmc = GenericQMC::new(1);
         let handle = qmc.add_term(EyePlusXMatrixTerm, vec![0]);
         qmc.add_node(0, handle);
@@ -435,7 +433,7 @@ mod cluster_tests {
     }
 
     #[test]
-    fn check_simple_cluster_wrap_single_op() -> Result<(), ()> {
+    fn check_simple_cluster_wrap_single_op() -> Result<(), String> {
         let mut qmc = GenericQMC::new(1);
         let handle = qmc.add_term(EyePlusXMatrixTerm, vec![0]);
         qmc.add_node(0, handle);
@@ -529,7 +527,7 @@ mod cluster_tests {
     }
 
     #[test]
-    fn check_simple_twobody_cluster() -> Result<(), ()> {
+    fn check_simple_twobody_cluster() -> Result<(), String> {
         let mut qmc = GenericQMC::new(2);
         let handle = qmc.add_term(EyeEyePlusXXMatrixTerm, vec![0, 1]);
         qmc.add_node(0, handle);
@@ -552,7 +550,7 @@ mod cluster_tests {
     }
 
     #[test]
-    fn check_simple_twobody_cluster_wrap_single_op_worm() -> Result<(), ()> {
+    fn check_simple_twobody_cluster_wrap_single_op_worm() -> Result<(), String> {
         let mut qmc = GenericQMC::new(2);
         let handle = qmc.add_term(EyeEyePlusXXMatrixTerm, vec![0, 1]);
         qmc.add_node(0, handle);
@@ -632,7 +630,7 @@ mod cluster_tests {
     }
 
     #[test]
-    fn check_simple_twobody_cluster_wrap_single_op_ising_cluster() -> Result<(), ()> {
+    fn check_simple_twobody_cluster_wrap_single_op_ising_cluster() -> Result<(), String> {
         let mut qmc = GenericQMC::new(2);
         let handle = qmc.add_term(EyeEyePlusZZMatrixTerm, vec![0, 1]);
         qmc.add_node(0, handle);
@@ -651,7 +649,7 @@ mod cluster_tests {
     }
 
     #[test]
-    fn check_staggered_twobody_cluster() -> Result<(), ()> {
+    fn check_staggered_twobody_cluster() -> Result<(), String> {
         let mut qmc = GenericQMC::new(3);
         let handle_a = qmc.add_term(EyeEyePlusZZMatrixTerm, vec![0, 1]);
         let handle_b = qmc.add_term(EyeEyePlusZZMatrixTerm, vec![1, 2]);

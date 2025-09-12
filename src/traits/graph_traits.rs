@@ -250,9 +250,7 @@ impl<T> PartialOrd<Self> for Link<T>
 where
     T: Eq + Ord + PartialEq + PartialOrd + Clone,
 {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.timeslice.partial_cmp(&other.timeslice)
-    }
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
 }
 
 impl<T> Ord for Link<T>

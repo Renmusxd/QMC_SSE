@@ -1,11 +1,11 @@
 use num_traits::{One, Zero};
 use rand::prelude::*;
 
-use QmcSSE::qmc::naive_flip_impl::MatrixTermFlippable;
-use QmcSSE::qmc::{GenericQMC, MatrixTermData};
-use QmcSSE::traits::diagonal_update::DiagonalUpdate;
-use QmcSSE::traits::graph_traits::GraphStateNavigator;
-use QmcSSE::traits::naive_flip_update::NaiveFlipUpdater;
+use qmc_sse::qmc::naive_flip_impl::MatrixTermFlippable;
+use qmc_sse::qmc::{GenericQMC, MatrixTermData};
+use qmc_sse::traits::diagonal_update::DiagonalUpdate;
+use qmc_sse::traits::graph_traits::GraphStateNavigator;
+use qmc_sse::traits::naive_flip_update::NaiveFlipUpdater;
 
 fn main() {
     let l = 3;
