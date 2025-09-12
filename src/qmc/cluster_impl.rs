@@ -315,7 +315,7 @@ mod cluster_tests {
     struct EyePlusXMatrixTerm;
 
     impl MatrixTermData<f64> for EyePlusXMatrixTerm {
-        fn get_matrix_entry(&self, input: usize, output: usize) -> f64 {
+        fn get_matrix_entry(&self, _input: usize, _output: usize) -> f64 {
             1.0
         }
         fn dim(&self) -> usize {
@@ -323,15 +323,15 @@ mod cluster_tests {
         }
         fn get_weight_change_for_diagonal(
             &self,
-            old_state: usize,
-            new_state: usize,
+            _old_state: usize,
+            _new_state: usize,
         ) -> Option<(f64, f64)> {
             None
         }
         fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
             &self,
-            input: usize,
-            output: usize,
+            _input: usize,
+            _output: usize,
         ) -> usize {
             1
         }
@@ -342,17 +342,17 @@ mod cluster_tests {
         }
         fn get_weights_for_inputs_given_output(
             &self,
-            input_a: usize,
-            input_b: usize,
-            output: usize,
+            _input_a: usize,
+            _input_b: usize,
+            _output: usize,
         ) -> Option<(f64, f64)> {
             None
         }
         fn get_nth_equal_weight_output_for_input_distinct_from_output(
             &self,
-            input: usize,
+            _input: usize,
             output: usize,
-            n: usize,
+            _n: usize,
         ) -> usize {
             1 - output
         }
@@ -427,7 +427,7 @@ mod cluster_tests {
             .map(|node| (node.input_state[0], node.output_state[0]));
         debug_assert_eq!(second_node_value, Some((false, true)));
 
-        debug_assert_eq!(qmc.get_initial_state()[0], true);
+        debug_assert!(qmc.get_initial_state()[0]);
 
         Ok(())
     }
@@ -446,7 +446,7 @@ mod cluster_tests {
             .map(|node| (node.input_state[0], node.output_state[0]));
         debug_assert_eq!(first_node_value, Some((true, true)));
 
-        debug_assert_eq!(qmc.get_initial_state()[0], true);
+        debug_assert!(qmc.get_initial_state()[0]);
 
         Ok(())
     }
@@ -454,7 +454,7 @@ mod cluster_tests {
     struct EyeEyePlusXXMatrixTerm;
 
     impl MatrixTermData<f64> for EyeEyePlusXXMatrixTerm {
-        fn get_matrix_entry(&self, input: usize, output: usize) -> f64 {
+        fn get_matrix_entry(&self, _input: usize, _output: usize) -> f64 {
             unimplemented!()
         }
         fn dim(&self) -> usize {
@@ -463,8 +463,8 @@ mod cluster_tests {
 
         fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
             &self,
-            input: usize,
-            output: usize,
+            _input: usize,
+            _output: usize,
         ) -> usize {
             1
         }
@@ -475,17 +475,17 @@ mod cluster_tests {
         }
         fn get_weights_for_inputs_given_output(
             &self,
-            input_a: usize,
-            input_b: usize,
-            output: usize,
+            _input_a: usize,
+            _input_b: usize,
+            _output: usize,
         ) -> Option<(f64, f64)> {
             todo!()
         }
         fn get_nth_equal_weight_output_for_input_distinct_from_output(
             &self,
             input: usize,
-            output: usize,
-            n: usize,
+            _output: usize,
+            _n: usize,
         ) -> usize {
             match input {
                 0 => 3,
@@ -571,7 +571,7 @@ mod cluster_tests {
     struct EyeEyePlusZZMatrixTerm;
 
     impl MatrixTermData<f64> for EyeEyePlusZZMatrixTerm {
-        fn get_matrix_entry(&self, input: usize, output: usize) -> f64 {
+        fn get_matrix_entry(&self, _input: usize, _output: usize) -> f64 {
             unimplemented!()
         }
         fn dim(&self) -> usize {
@@ -579,8 +579,8 @@ mod cluster_tests {
         }
         fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
             &self,
-            input: usize,
-            output: usize,
+            _input: usize,
+            _output: usize,
         ) -> usize {
             0
         }
@@ -591,17 +591,17 @@ mod cluster_tests {
         }
         fn get_weights_for_inputs_given_output(
             &self,
-            input_a: usize,
-            input_b: usize,
-            output: usize,
+            _input_a: usize,
+            _input_b: usize,
+            _output: usize,
         ) -> Option<(f64, f64)> {
             unimplemented!()
         }
         fn get_nth_equal_weight_output_for_input_distinct_from_output(
             &self,
-            input: usize,
-            output: usize,
-            n: usize,
+            _input: usize,
+            _output: usize,
+            _n: usize,
         ) -> usize {
             unimplemented!()
         }
@@ -609,8 +609,8 @@ mod cluster_tests {
     impl TermClusterExpander<bool> for EyeEyePlusZZMatrixTerm {
         fn output_changes_for_spin_flip<'a, R>(
             &self,
-            input_state: &[bool],
-            output_state: &[bool],
+            _input_state: &[bool],
+            _output_state: &[bool],
             direction: DirectionEnum,
             relative_index: usize,
             new_value: &bool,

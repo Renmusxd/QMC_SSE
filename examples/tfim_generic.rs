@@ -1,5 +1,4 @@
 use rand::prelude::*;
-use std::env::var;
 
 use qmc_sse::qmc::{GenericQMC};
 use qmc_sse::terms::generic::GenericMatrixTermEnum;
@@ -25,7 +24,7 @@ fn main() {
     let mut rng = SmallRng::seed_from_u64(12345);
 
     let thermalization_steps = 128;
-    for i in 0..thermalization_steps {
+    for _ in 0..thermalization_steps {
         qmc.maintain_maximum_filling_fraction(0.5, 16);
         qmc.diagonal_update(beta, &mut rng);
         qmc.naive_flip_update(&mut rng);

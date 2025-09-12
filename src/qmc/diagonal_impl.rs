@@ -38,7 +38,7 @@ mod test_diagonal {
     #[test]
     fn test_run_diagonal() {
         let mut qmc = GenericQMC::<bool, _>::new(3);
-        let term_handle = qmc.add_term(
+        let _term_handle = qmc.add_term(
             GenericMatrixTermEnum::make_diagonal(vec![1.0, 1.0]),
             vec![0],
         );
@@ -64,7 +64,7 @@ mod test_diagonal {
     #[test]
     fn test_run_diagonal_scaled() {
         let mut qmc = GenericQMC::<bool, _>::new(3);
-        let term_handle = qmc.add_term(
+        let _term_handle = qmc.add_term(
             GenericMatrixTermEnum::make_diagonal(vec![2.0, 2.0]),
             vec![0],
         );
@@ -89,7 +89,7 @@ mod test_diagonal {
     #[test]
     fn test_run_diagonal_state_dependent() {
         let mut qmc = GenericQMC::new_with_state(vec![false, false, false]);
-        let term_handle = qmc.add_term(
+        let _term_handle = qmc.add_term(
             GenericMatrixTermEnum::make_diagonal(vec![1.0, 10.0]),
             vec![0],
         );
@@ -111,7 +111,7 @@ mod test_diagonal {
         assert!((avg_energy - 1.0).abs() < 0.1);
 
         let mut qmc = GenericQMC::new_with_state(vec![true, true, true]);
-        let term_handle = qmc.add_term(
+        let _term_handle = qmc.add_term(
             GenericMatrixTermEnum::make_diagonal(vec![1.0, 2.0]),
             vec![0],
         );

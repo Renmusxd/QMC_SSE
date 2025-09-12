@@ -1,7 +1,5 @@
 use crate::qmc::{DoublyLinkedNode, GenericQMC, MatrixTermData};
-use crate::traits::graph_traits::{
-    DOFTypeTrait, GraphContext, GraphNode, Link, LinkedGraphNode, TimeSlicedGraph,
-};
+use crate::traits::graph_traits::{DOFTypeTrait, GraphContext, GraphNode, Link, LinkedGraphNode, LinkedGraphNodeOutputs, TimeSlicedGraph};
 
 impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> TimeSlicedGraph for GenericQMC<DOF, Data> {
     type TimesliceIndex = usize;
@@ -316,16 +314,16 @@ impl<DOF: DOFTypeTrait> LinkedGraphNode for DoublyLinkedNode<DOF> {
     fn iterate_over_outputs(
         &self,
     ) -> impl Iterator<
-        Item = (
-            &Self::DOFIndex,
-            &Self::DOFType,
-            Option<&Link<Self::TimesliceIndex>>,
-        ),
+        Item = LinkedGraphNodeOutputs<'_, Self::DOFIndex, Self::DOFType, Self::TimesliceIndex>,
     > {
         let a = self.represents_term.act_on_indices.iter();
         let b = self.output_state.iter();
         let c = self.next_node_index_for_variable.iter();
-        a.zip(b).zip(c).map(|((a, b), c)| (a, b, c.as_ref()))
+        a.zip(b).zip(c).map(|((a, b), c)| LinkedGraphNodeOutputs {
+            index: a,
+            value: b,
+            next_node: c.as_ref(),
+        })
     }
 }
 

@@ -3,7 +3,6 @@ use rand::prelude::*;
 use qmc_sse::qmc::GenericQMC;
 use qmc_sse::terms::tfim::TFIMTerm;
 use qmc_sse::traits::diagonal_update::DiagonalUpdate;
-use qmc_sse::traits::naive_flip_update::NaiveFlipUpdater;
 
 fn main() {
     let n = 5;
@@ -27,7 +26,7 @@ fn main() {
     let mut rng = SmallRng::seed_from_u64(12345);
 
     let thermalization_steps = 128;
-    for i in 0..thermalization_steps {
+    for _ in 0..thermalization_steps {
         qmc.maintain_maximum_filling_fraction(0.5, 16);
         qmc.diagonal_update(beta, &mut rng);
     }

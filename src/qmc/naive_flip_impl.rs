@@ -186,8 +186,8 @@ mod test_naive_flip_implementation {
             .get_node(&0)
             .expect("Node was added, should not be removed.");
         assert!(node.is_diagonal());
-        assert_eq!(node.input_state[0], false);
-        assert_eq!(node.output_state[0], false);
+        assert!(!node.input_state[0]);
+        assert!(!node.output_state[0]);
 
         let mut rng = rand::rng();
         qmc.naive_flip_update_starting_from_timeslice(0, &mut rng);
@@ -196,8 +196,8 @@ mod test_naive_flip_implementation {
             .get_node(&0)
             .expect("Node was added, should not be removed.");
         assert!(node.is_diagonal());
-        assert_eq!(node.input_state[0], true);
-        assert_eq!(node.output_state[0], true);
+        assert!(node.input_state[0]);
+        assert!(node.output_state[0]);
     }
 
     #[test]

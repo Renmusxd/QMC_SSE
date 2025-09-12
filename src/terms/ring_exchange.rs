@@ -1,6 +1,6 @@
-use qmc_sse::qmc::MatrixTermData;
-use qmc_sse::qmc::naive_flip_impl::MatrixTermFlippable;
 use num_traits::{One, Zero};
+use crate::qmc::MatrixTermData;
+use crate::qmc::naive_flip_impl::MatrixTermFlippable;
 
 #[derive(Clone)]
 pub struct RingExchangeData<T>
@@ -69,11 +69,10 @@ where
     T: Zero + One + Clone + PartialEq,
 {
     fn get_matrix_entry(&self, input: usize, output: usize) -> T {
-        if input == output {
-            self.scale.clone()
-        } else if input == self.exchangeable_state_a && output == self.exchangeable_state_b {
-            self.scale.clone()
-        } else if output == self.exchangeable_state_a && input == self.exchangeable_state_b {
+        let is_diagonal = input == output;
+        let flippable_states = [self.exchangeable_state_a, self.exchangeable_state_b];
+        let is_flippable = flippable_states.contains(&input) && flippable_states.contains(&output);
+        if is_diagonal || is_flippable {
             self.scale.clone()
         } else {
             T::zero()
@@ -95,7 +94,7 @@ where
     fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
         &self,
         input: usize,
-        output: usize,
+        _output: usize,
     ) -> usize {
         if input == self.exchangeable_state_a || input == self.exchangeable_state_b {
             1

@@ -91,11 +91,10 @@ impl<DOF: DOFTypeTrait> GraphNode for DoublyLinkedNode<DOF> {
         &self.output_state
     }
 
-    fn get_relative_variable_index(&self, index: &Self::DOFIndex) -> Result<usize, ()> {
+    fn get_relative_variable_index(&self, index: &Self::DOFIndex) -> Option<usize> {
         self.get_indices()
             .iter()
             .copied()
             .find(|v| v.eq(index))
-            .ok_or(())
     }
 }

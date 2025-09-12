@@ -46,7 +46,7 @@ pub trait GraphStateNavigator {
         &self,
         node: &Self::Node,
         index: &Self::DOFIndex,
-    ) -> Result<Option<(&Self::Node, usize)>, ()> {
+    ) -> Option<Option<(&Self::Node, usize)>> {
         node.get_relative_variable_index(index)
             .map(|index| self.get_next_node_for_relative_dof(node, index))
     }
@@ -55,7 +55,7 @@ pub trait GraphStateNavigator {
         &self,
         node: &Self::Node,
         index: &Self::DOFIndex,
-    ) -> Result<Option<(&Self::Node, usize)>, ()> {
+    ) -> Option<Option<(&Self::Node, usize)>> {
         node.get_relative_variable_index(index)
             .map(|index| self.get_previous_node_for_relative_dof(node, index))
     }
@@ -86,7 +86,7 @@ pub trait GraphNode {
     fn get_input_state(&self) -> &[Self::DOFType];
     fn get_output_state(&self) -> &[Self::DOFType];
 
-    fn get_relative_variable_index(&self, index: &Self::DOFIndex) -> Result<usize, ()>;
+    fn get_relative_variable_index(&self, index: &Self::DOFIndex) -> Option<usize>;
     fn is_diagonal(&self) -> bool {
         self.get_input_state() == self.get_output_state()
     }
@@ -197,7 +197,7 @@ where
 
             if let Some(node) = self.get_node(&t) {
                 node.iterate_over_outputs().enumerate().for_each(
-                    |(rel_index, (global_index, _, _))| {
+                    |(rel_index, LinkedGraphNodeOutputs { index: global_index, ..})| {
                         let global_index = global_index.clone().into();
                         last_nodes[global_index] = Some(Link {
                             timeslice: t.clone(),
@@ -224,16 +224,18 @@ where
         F: FnOnce(GraphContext<Self::DOFType, Link<Self::TimesliceIndex>>) -> Self::Node;
 }
 
+pub struct LinkedGraphNodeOutputs<'a, DOFIndex, DOFType, TimesliceIndex> where TimesliceIndex: Clone + Ord {
+    pub index: &'a DOFIndex,
+    pub value: &'a DOFType,
+    pub next_node: Option<&'a Link<TimesliceIndex>>
+}
+
 pub trait LinkedGraphNode: GraphNode {
     type TimesliceIndex: Eq + PartialEq + Ord + PartialOrd + Clone + Debug;
     fn iterate_over_outputs(
         &self,
     ) -> impl Iterator<
-        Item = (
-            &Self::DOFIndex,
-            &Self::DOFType,
-            Option<&Link<Self::TimesliceIndex>>,
-        ),
+        Item = LinkedGraphNodeOutputs<'_, Self::DOFIndex, Self::DOFType, Self::TimesliceIndex>,
     >;
 }
 
