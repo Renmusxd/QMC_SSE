@@ -1,6 +1,6 @@
-use num_traits::{One, Zero};
 use crate::qmc::MatrixTermData;
 use crate::qmc::naive_flip_impl::MatrixTermFlippable;
+use num_traits::{One, Zero};
 
 #[derive(Clone)]
 pub struct RingExchangeData<T>

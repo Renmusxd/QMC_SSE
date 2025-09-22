@@ -141,7 +141,9 @@ where
         };
 
         // MH step if needed.
-        if let Some(w) = weight_change_on_flip && w < 1.0 {
+        if let Some(w) = weight_change_on_flip
+            && w < 1.0
+        {
             let should_flip = rng.sample(rand::distr::Uniform::new(0.0, 1.0).unwrap()) < w;
             if !should_flip {
                 return;

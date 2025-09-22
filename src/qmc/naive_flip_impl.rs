@@ -2,7 +2,8 @@ use crate::qmc::{GenericQMC, MatrixTermData};
 use crate::traits::graph_traits::{DOFTypeTrait, GraphNode};
 use crate::traits::naive_flip_update::NaiveFlipUpdater;
 
-impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> NaiveFlipUpdater for GenericQMC<DOF, Data>
+impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>, GC> NaiveFlipUpdater
+    for GenericQMC<DOF, Data, GC>
 where
     Data: MatrixTermFlippable<f64>,
 {
@@ -138,8 +139,8 @@ pub trait MatrixTermFlippable<T> {
 
 #[cfg(test)]
 mod test_naive_flip_implementation {
-    use crate::terms::generic::GenericMatrixTermEnum;
     use super::*;
+    use crate::terms::generic::GenericMatrixTermEnum;
     use crate::traits::graph_traits::{GraphStateNavigator, TimeSlicedGraph};
 
     #[test]

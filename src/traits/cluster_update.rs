@@ -1,8 +1,8 @@
+use crate::traits::WeightChange;
 use crate::traits::graph_traits::{GraphNode, LinkedGraphNode, TimeSlicedGraph};
 use crate::traits::graph_weights::GraphWeight;
 use rand::Rng;
 use std::hash::Hash;
-use std::ops::MulAssign;
 
 pub trait ClusterUpdater: TimeSlicedGraph + GraphWeight
 where
@@ -35,7 +35,9 @@ where
         let mut cluster = self.get_cluster_manager();
 
         // We have to flip the spin to get started
-        let node = self.get_node(timeslice).ok_or("Timeslice does not contain node.".to_string())?;
+        let node = self
+            .get_node(timeslice)
+            .ok_or("Timeslice does not contain node.".to_string())?;
         let val = cluster.push_cluster_leg(Leg::new(node, direction, relative_index), new_value);
         let leg_changes = self.output_changes_for_spin_flip_with_default_state(
             node,
@@ -316,40 +318,6 @@ pub trait ClusterManager<N, DOF, DOFIndex> {
 pub trait NodeClusterExpansion<DOF> {
     fn get_weight_change(&self) -> WeightChange;
     fn get_iterator(self) -> impl IntoIterator<Item = (DirectionEnum, usize, DOF)>;
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum WeightChange {
-    NoChange,
-    ZeroWeight,
-    Factor(f64),
-}
-
-impl WeightChange {
-    pub fn get_factor_mut(&mut self) -> Option<&mut f64> {
-        match self {
-            WeightChange::NoChange | WeightChange::ZeroWeight => None,
-            WeightChange::Factor(x) => Some(x),
-        }
-    }
-
-    pub fn zero_weight(&self) -> bool {
-        matches!(self, WeightChange::ZeroWeight | WeightChange::Factor(0.0))
-    }
-}
-
-impl MulAssign<WeightChange> for WeightChange {
-    fn mul_assign(&mut self, rhs: WeightChange) {
-        match (self, rhs) {
-            (_, WeightChange::NoChange) => {}
-            (WeightChange::ZeroWeight, _) => {}
-            (x, WeightChange::ZeroWeight) => *x = WeightChange::ZeroWeight,
-            (x @ WeightChange::NoChange, WeightChange::Factor(f)) => {
-                *x = WeightChange::Factor(f);
-            }
-            (WeightChange::Factor(x), WeightChange::Factor(y)) => *x *= y,
-        }
-    }
 }
 
 impl<DOF, T> NodeClusterExpansion<DOF> for T

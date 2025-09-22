@@ -1,7 +1,9 @@
 use crate::qmc::{DoublyLinkedNode, GenericQMC, MatrixTermData};
 use crate::traits::graph_traits::{DOFTypeTrait, GraphNode, GraphStateNavigator};
 
-impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> GraphStateNavigator for GenericQMC<DOF, Data> {
+impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>, GC> GraphStateNavigator
+    for GenericQMC<DOF, Data, GC>
+{
     type Node = DoublyLinkedNode<DOF>;
     type DOFIndex = usize;
     type DOFType = DOF;
@@ -92,9 +94,6 @@ impl<DOF: DOFTypeTrait> GraphNode for DoublyLinkedNode<DOF> {
     }
 
     fn get_relative_variable_index(&self, index: &Self::DOFIndex) -> Option<usize> {
-        self.get_indices()
-            .iter()
-            .copied()
-            .find(|v| v.eq(index))
+        self.get_indices().iter().copied().find(|v| v.eq(index))
     }
 }

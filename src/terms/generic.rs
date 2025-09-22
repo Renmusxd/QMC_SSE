@@ -1,6 +1,6 @@
-use num_traits::{One, Zero};
 use crate::qmc::MatrixTermData;
 use crate::qmc::naive_flip_impl::MatrixTermFlippable;
+use num_traits::{One, Zero};
 
 pub enum GenericMatrixTermEnum<T> {
     Identity {

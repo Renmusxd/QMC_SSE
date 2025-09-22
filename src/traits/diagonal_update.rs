@@ -1,4 +1,6 @@
-use crate::traits::graph_traits::{GraphContext, GraphNode, Link, LinkedGraphNode, LinkedGraphNodeOutputs, TimeSlicedGraph};
+use crate::traits::graph_traits::{
+    GraphContext, GraphNode, Link, LinkedGraphNode, LinkedGraphNodeOutputs, TimeSlicedGraph,
+};
 use crate::traits::graph_weights::{GraphWeight, MatrixTermTrait};
 use log::debug;
 use rand::Rng;
@@ -114,7 +116,14 @@ where
 
             if let Some(node) = new_node {
                 node.iterate_over_outputs().enumerate().for_each(
-                    |(rel_index, LinkedGraphNodeOutputs { index: global_index, value: dof_state, .. })| {
+                    |(
+                        rel_index,
+                        LinkedGraphNodeOutputs {
+                            index: global_index,
+                            value: dof_state,
+                            ..
+                        },
+                    )| {
                         let global_index = global_index.clone().into();
                         incoming_state[global_index] = *dof_state;
                         last_nodes[global_index] = Some(Link {

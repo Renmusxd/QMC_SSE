@@ -5,7 +5,7 @@ use rustfft::FftPlanner;
 use rustfft::num_complex::Complex;
 use std::ops::DivAssign;
 
-impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> GenericQMC<DOF, Data> {
+impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>, GC> GenericQMC<DOF, Data, GC> {
     pub fn autocorr_for_terms<F>(&mut self, beta: f64, n_steps: usize, mut step: F) -> Vec<f64>
     where
         F: FnMut(&mut Self),

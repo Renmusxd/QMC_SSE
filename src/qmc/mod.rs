@@ -1,10 +1,13 @@
-use crate::traits::graph_traits::{DOFTypeTrait, GraphNode, Link, TimeSlicedGraph};
+use crate::traits::graph_traits::{
+    DOFTypeTrait, GraphNode, GraphStateNavigator, Link, TimeSlicedGraph,
+};
 use std::cmp::max;
 
 #[cfg(feature = "autocorrelations")]
 pub mod autocorr;
 pub mod cluster_impl;
 pub mod diagonal_impl;
+mod dimer_worm_impl;
 pub mod graph_mod_impl;
 pub mod naive_flip_impl;
 pub mod navigator_impl;
@@ -12,10 +15,7 @@ pub mod weight_impl;
 
 pub type MatrixTermHandle = usize;
 
-pub struct GenericQMC<
-    DOF: DOFTypeTrait,
-    TermData: MatrixTermData<f64>,
-> {
+pub struct GenericQMC<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GraphInformation = ()> {
     initial_state: Vec<DOF>,
     indices: Vec<usize>,
     time_slices: Vec<Option<DoublyLinkedNode<DOF>>>,
@@ -33,15 +33,27 @@ pub struct GenericQMC<
     list_of_nodes_by_term: Vec<Vec<usize>>,
 
     list_of_nodes_with_flippable_outputs: Vec<usize>,
+
+    graph_information: GraphInformation,
 }
 
 impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData> {
     pub fn new(num_dofs: usize) -> Self {
-        let state = (0..num_dofs).map(|_| DOF::default()).collect();
-        Self::new_with_state(state)
+        Self::new_with_context(num_dofs, ())
     }
 
     pub fn new_with_state(initial_state: Vec<DOF>) -> Self {
+        Self::new_with_state_and_context(initial_state, ())
+    }
+}
+
+impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermData, GI> {
+    pub fn new_with_context(num_dofs: usize, graph_information: GI) -> Self {
+        let state = (0..num_dofs).map(|_| DOF::default()).collect();
+        Self::new_with_state_and_context(state, graph_information)
+    }
+
+    pub fn new_with_state_and_context(initial_state: Vec<DOF>, graph_information: GI) -> Self {
         let n = initial_state.len();
         Self {
             initial_state,
@@ -54,6 +66,7 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
             num_non_identity_terms: 0,
             list_of_nodes_by_term: vec![],
             list_of_nodes_with_flippable_outputs: vec![],
+            graph_information,
         }
     }
 
@@ -168,6 +181,79 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData>
 
     pub fn get_count_for_term(&self, term: &MatrixTermHandle) -> usize {
         self.list_of_nodes_by_term[*term].len()
+    }
+
+    pub fn iterate_backwards_through_nodes_until_match<'a, F>(
+        &'a self,
+        starting_node_excluded: &'a DoublyLinkedNode<DOF>,
+        rel_index: usize,
+        filter: F,
+    ) -> Option<(&'a DoublyLinkedNode<DOF>, usize)>
+    where
+        F: Fn(&DoublyLinkedNode<DOF>, usize) -> bool,
+    {
+        self.iterate_through_nodes_until_match(
+            starting_node_excluded,
+            rel_index,
+            filter,
+            |node, rel_index| {
+                self.get_previous_node_for_relative_dof(node, rel_index)
+                    .unwrap_or_else(|| {
+                        self.get_last_node_for_dof(&node.get_indices()[rel_index])
+                            .expect("We know this DOF must have nodes")
+                    })
+            },
+        )
+    }
+
+    pub fn iterate_forwards_through_nodes_until_match<'a, F>(
+        &'a self,
+        starting_node_excluded: &'a DoublyLinkedNode<DOF>,
+        rel_index: usize,
+        filter: F,
+    ) -> Option<(&'a DoublyLinkedNode<DOF>, usize)>
+    where
+        F: Fn(&DoublyLinkedNode<DOF>, usize) -> bool,
+    {
+        self.iterate_through_nodes_until_match(
+            starting_node_excluded,
+            rel_index,
+            filter,
+            |node, rel_index| {
+                self.get_next_node_for_relative_dof(node, rel_index)
+                    .unwrap_or_else(|| {
+                        self.get_first_node_for_dof(&node.get_indices()[rel_index])
+                            .expect("We know this DOF must have nodes")
+                    })
+            },
+        )
+    }
+
+    pub fn iterate_through_nodes_until_match<'a, F, G>(
+        &'a self,
+        starting_node_excluded: &'a DoublyLinkedNode<DOF>,
+        rel_index: usize,
+        filter: F,
+        successor: G,
+    ) -> Option<(&'a DoublyLinkedNode<DOF>, usize)>
+    where
+        F: Fn(&DoublyLinkedNode<DOF>, usize) -> bool,
+        G: Fn(&'a DoublyLinkedNode<DOF>, usize) -> (&'a DoublyLinkedNode<DOF>, usize),
+    {
+        let mut node = starting_node_excluded;
+        let mut rel_index = rel_index;
+        let starting_t = node.timeslice;
+        let mut current_t = usize::MAX;
+
+        while current_t != starting_t {
+            (node, rel_index) = successor(node, rel_index);
+            if filter(node, rel_index) {
+                return Some((node, rel_index));
+            }
+            current_t = node.timeslice;
+        }
+
+        None
     }
 
     pub fn print_worldlines(&self) {

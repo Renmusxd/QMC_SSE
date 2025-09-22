@@ -1,17 +1,17 @@
-use std::fmt::Debug;
-use std::ops::{Add, Neg};
-use num_traits::{Signed, Zero};
-use rand::Rng;
-use crate::qmc::cluster_impl::TermClusterExpander;
 use crate::qmc::MatrixTermData;
+use crate::qmc::cluster_impl::TermClusterExpander;
 use crate::qmc::naive_flip_impl::MatrixTermFlippable;
 use crate::traits::cluster_update::{DirectionEnum, NodeClusterExpansion};
 use crate::traits::graph_traits::DOFTypeTrait;
+use num_traits::{Signed, Zero};
+use rand::Rng;
+use std::fmt::Debug;
+use std::ops::{Add, Neg};
 
 #[derive(Debug, Clone, Copy)]
 pub enum TFIMTerm<T> {
     ZZ(T),
-    X(T)
+    X(T),
 }
 
 impl<T> MatrixTermData<T> for TFIMTerm<T>
@@ -48,11 +48,14 @@ where
                 } else {
                     let result = Some((jj.clone() + jj.clone(), T::zero()));
 
-                    debug_assert_eq!({
-                        let old_weight = self.get_matrix_entry(old_state, old_state);
-                        let new_weight = self.get_matrix_entry(new_state, new_state);
-                        Some((old_weight, new_weight))
-                    }, result.clone());
+                    debug_assert_eq!(
+                        {
+                            let old_weight = self.get_matrix_entry(old_state, old_state);
+                            let new_weight = self.get_matrix_entry(new_state, new_state);
+                            Some((old_weight, new_weight))
+                        },
+                        result.clone()
+                    );
 
                     result
                 }
@@ -60,7 +63,11 @@ where
         }
     }
 
-    fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(&self, _input: usize, _output: usize) -> usize {
+    fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
+        &self,
+        _input: usize,
+        _output: usize,
+    ) -> usize {
         match self {
             TFIMTerm::ZZ(_) => 0,
             TFIMTerm::X(_) => 1,
@@ -68,20 +75,35 @@ where
     }
 }
 
-impl<T> MatrixTermFlippable<T> for TFIMTerm<T> where T: Zero + Clone + Signed
+impl<T> MatrixTermFlippable<T> for TFIMTerm<T>
+where
+    T: Zero + Clone + Signed,
 {
     fn is_maybe_flippable(&self) -> bool {
         matches!(self, TFIMTerm::X(_))
     }
 
-    fn get_weights_for_inputs_given_output(&self, input_a: usize, input_b: usize, output: usize) -> Option<(T, T)> {
+    fn get_weights_for_inputs_given_output(
+        &self,
+        input_a: usize,
+        input_b: usize,
+        output: usize,
+    ) -> Option<(T, T)> {
         match self {
             TFIMTerm::ZZ(jj) => {
                 if input_a == input_b {
                     None
                 } else {
-                    let weight_a = if input_a == output { get_ising_weight(input_a, input_a, jj) } else { None };
-                    let weight_b = if input_b == output { get_ising_weight(input_b, input_b, jj) } else { None };
+                    let weight_a = if input_a == output {
+                        get_ising_weight(input_a, input_a, jj)
+                    } else {
+                        None
+                    };
+                    let weight_b = if input_b == output {
+                        get_ising_weight(input_b, input_b, jj)
+                    } else {
+                        None
+                    };
 
                     match (weight_a, weight_b) {
                         (None, None) => None,
@@ -91,15 +113,20 @@ impl<T> MatrixTermFlippable<T> for TFIMTerm<T> where T: Zero + Clone + Signed
                     }
                 }
             }
-            TFIMTerm::X(_) => {
-                None
-            }
+            TFIMTerm::X(_) => None,
         }
     }
 
-    fn get_nth_equal_weight_output_for_input_distinct_from_output(&self, _input: usize, output: usize, n: usize) -> usize {
+    fn get_nth_equal_weight_output_for_input_distinct_from_output(
+        &self,
+        _input: usize,
+        output: usize,
+        n: usize,
+    ) -> usize {
         match self {
-            TFIMTerm::ZZ(_) =>  unimplemented!("There are no equal weight outputs for a given input."),
+            TFIMTerm::ZZ(_) => {
+                unimplemented!("There are no equal weight outputs for a given input.")
+            }
             TFIMTerm::X(_) => {
                 debug_assert_eq!(n, 0);
                 1 - output
@@ -109,9 +136,17 @@ impl<T> MatrixTermFlippable<T> for TFIMTerm<T> where T: Zero + Clone + Signed
 }
 
 impl<T> TermClusterExpander<bool> for TFIMTerm<T> {
-    fn output_changes_for_spin_flip<'a, R>(&self, _: &[bool], _: &[bool], direction: DirectionEnum, relative_index: usize, new_value: &bool, _: &mut R) -> impl NodeClusterExpansion<bool> + 'a
+    fn output_changes_for_spin_flip<'a, R>(
+        &self,
+        _: &[bool],
+        _: &[bool],
+        direction: DirectionEnum,
+        relative_index: usize,
+        new_value: &bool,
+        _: &mut R,
+    ) -> impl NodeClusterExpansion<bool> + 'a
     where
-        R: Rng
+        R: Rng,
     {
         // Rather than return one of two vectors, just construct a small array and return the
         // first n={0, 3} objects.
@@ -133,13 +168,16 @@ impl<T> TermClusterExpander<bool> for TFIMTerm<T> {
     }
 }
 
-fn get_ising_weight<T>(input: usize, output: usize, scale: &T) -> Option<T> where T: Clone + Neg<Output=T> + Signed + Add {
+fn get_ising_weight<T>(input: usize, output: usize, scale: &T) -> Option<T>
+where
+    T: Clone + Neg<Output = T> + Signed + Add,
+{
     if input != output {
         None
     } else {
         let state = bool::index_to_state::<2>(input);
         let bond = if state[0] == state[1] {
-            - scale.clone()
+            -scale.clone()
         } else {
             scale.clone()
         };

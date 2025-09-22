@@ -6,7 +6,7 @@ use crate::traits::graph_traits::{DOFTypeTrait, GraphNode};
 use rand::Rng;
 use std::collections::HashMap;
 
-impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> ClusterUpdater for GenericQMC<DOF, Data>
+impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>, GC> ClusterUpdater for GenericQMC<DOF, Data, GC>
 where
     Data: TermClusterExpander<DOF>,
     DOF: 'static,
@@ -309,7 +309,7 @@ pub trait TermClusterExpander<DOF> {
 mod cluster_tests {
     use super::*;
     use crate::qmc::naive_flip_impl::MatrixTermFlippable;
-    use crate::traits::cluster_update::WeightChange;
+    use crate::traits::WeightChange;
     use crate::traits::graph_traits::{GraphStateNavigator, TimeSlicedGraph};
 
     struct EyePlusXMatrixTerm;

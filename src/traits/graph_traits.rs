@@ -197,7 +197,13 @@ where
 
             if let Some(node) = self.get_node(&t) {
                 node.iterate_over_outputs().enumerate().for_each(
-                    |(rel_index, LinkedGraphNodeOutputs { index: global_index, ..})| {
+                    |(
+                        rel_index,
+                        LinkedGraphNodeOutputs {
+                            index: global_index,
+                            ..
+                        },
+                    )| {
                         let global_index = global_index.clone().into();
                         last_nodes[global_index] = Some(Link {
                             timeslice: t.clone(),
@@ -224,10 +230,13 @@ where
         F: FnOnce(GraphContext<Self::DOFType, Link<Self::TimesliceIndex>>) -> Self::Node;
 }
 
-pub struct LinkedGraphNodeOutputs<'a, DOFIndex, DOFType, TimesliceIndex> where TimesliceIndex: Clone + Ord {
+pub struct LinkedGraphNodeOutputs<'a, DOFIndex, DOFType, TimesliceIndex>
+where
+    TimesliceIndex: Clone + Ord,
+{
     pub index: &'a DOFIndex,
     pub value: &'a DOFType,
-    pub next_node: Option<&'a Link<TimesliceIndex>>
+    pub next_node: Option<&'a Link<TimesliceIndex>>,
 }
 
 pub trait LinkedGraphNode: GraphNode {
@@ -252,7 +261,9 @@ impl<T> PartialOrd<Self> for Link<T>
 where
     T: Eq + Ord + PartialEq + PartialOrd + Clone,
 {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl<T> Ord for Link<T>

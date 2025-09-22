@@ -2,7 +2,9 @@ use crate::qmc::{DoublyLinkedNode, GenericQMC, MatrixTermData};
 use crate::traits::diagonal_update::DiagonalUpdate;
 use crate::traits::graph_traits::{DOFTypeTrait, GraphContext, Link};
 
-impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> DiagonalUpdate for GenericQMC<DOF, Data> {
+impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>, GC> DiagonalUpdate
+    for GenericQMC<DOF, Data, GC>
+{
     fn get_number_of_time_slices(&self) -> usize {
         self.time_slices.len()
     }
@@ -32,8 +34,8 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> DiagonalUpdate for GenericQMC
 
 #[cfg(test)]
 mod test_diagonal {
-    use crate::terms::generic::GenericMatrixTermEnum;
     use super::*;
+    use crate::terms::generic::GenericMatrixTermEnum;
 
     #[test]
     fn test_run_diagonal() {

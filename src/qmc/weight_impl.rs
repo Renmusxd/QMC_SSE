@@ -1,8 +1,8 @@
-use crate::qmc::{MatrixTerm, GenericQMC, MatrixTermData};
+use crate::qmc::{GenericQMC, MatrixTerm, MatrixTermData};
 use crate::traits::graph_traits::DOFTypeTrait;
 use crate::traits::graph_weights::{GraphWeight, MatrixTermTrait};
 
-impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>> GraphWeight for GenericQMC<DOF, Data> {
+impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>, GC> GraphWeight for GenericQMC<DOF, Data, GC> {
     type MatrixTerm = MatrixTerm;
 
     fn get_possible_terms(&self) -> &[Self::MatrixTerm] {
@@ -41,7 +41,7 @@ impl MatrixTermTrait for MatrixTerm {
 #[cfg(test)]
 mod weight_tests {
     use super::*;
-    use crate::qmc::{ GenericQMC};
+    use crate::qmc::GenericQMC;
     use crate::terms::generic::GenericMatrixTermEnum;
     use crate::traits::graph_traits::TimeSlicedGraph;
 
