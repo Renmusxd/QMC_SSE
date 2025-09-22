@@ -1,6 +1,6 @@
 use rand::prelude::*;
 
-use qmc_sse::qmc::{GenericQMC};
+use qmc_sse::qmc::GenericQMC;
 use qmc_sse::terms::generic::GenericMatrixTermEnum;
 use qmc_sse::traits::diagonal_update::DiagonalUpdate;
 use qmc_sse::traits::naive_flip_update::NaiveFlipUpdater;

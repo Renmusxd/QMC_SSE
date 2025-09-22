@@ -9,12 +9,7 @@ fn main() {
     let l = 3;
 
     let mut qmc = GenericQMC::new_with_state(vec![false; l]);
-    let term = RingExchangeData::new(
-         1.0,
-         0b00,
-         0b11,
-         4,
-    );
+    let term = RingExchangeData::new(1.0, 0b00, 0b11, 4);
 
     for i in 0..l - 1 {
         qmc.add_term(term.clone(), vec![i, i + 1]);
