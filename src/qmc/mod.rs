@@ -7,7 +7,7 @@ use std::cmp::max;
 pub mod autocorr;
 pub mod cluster_impl;
 pub mod diagonal_impl;
-mod dimer_worm_impl;
+pub mod term_rotator_impl;
 pub mod graph_mod_impl;
 pub mod naive_flip_impl;
 pub mod navigator_impl;

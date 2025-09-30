@@ -1,9 +1,7 @@
-use std::collections::HashSet;
+use rand::Rng;
 use crate::qmc::{GenericQMC, MatrixTermData};
-use crate::traits::diagonal_update::DiagonalUpdate;
-use crate::traits::WeightChange;
-use crate::traits::dimer_worm_update::MatrixTermRotationUpdate;
-use crate::traits::graph_traits::{DOFTypeTrait, GraphContext, GraphNode, GraphStateNavigator, Link};
+use crate::traits::term_rotation_cluster_update::{ClusterSliceData, MatrixTermRotationUpdate};
+use crate::traits::graph_traits::{DOFTypeTrait, GraphNode, GraphStateNavigator, Link};
 use crate::traits::graph_weights::GraphWeight;
 
 impl<DOF, Data, GI> MatrixTermRotationUpdate
@@ -16,7 +14,7 @@ where
     type SliceContext = GenericSliceContext<DOF>;
     type Cluster = GenericClusterInformation;
 
-    type ClusterSlice = HashSet<usize>;
+    type ClusterSlice = GenericClusterSlice;
 
     type ClusterFlipLabel = DOF::ClusterLabel;
 
@@ -148,18 +146,7 @@ where
         })
     }
 
-    fn get_cluster_from_starting_index(
-        &self,
-        context: &Self::SliceContext,
-        index: &Self::DOFIndex,
-    ) -> Self::Cluster {
-        let indices = self
-            .graph_information
-            .get_cluster_around_and_including_site(&context.state, index);
-        GenericClusterInformation {
-            indices_at_slice: indices.into_iter().collect(),
-        }
-    }
+    fn get_cluster_from_starting_index<R>(&self, _: &Self::SliceContext, _: &Self::DOFIndex, _: &mut R) -> Self::Cluster where R: Rng { todo!() }
 
     fn get_indices_in_cluster_at_timeslice(
         &self,
@@ -208,15 +195,6 @@ where
         DOF::get_cluster_labels()
     }
 
-    fn get_flip_weights_for_cluster(
-        &self,
-        context: &Self::SliceContext,
-        cluster: &Self::Cluster,
-        flip: &Self::ClusterFlipLabel,
-    ) -> WeightChange {
-        todo!()
-    }
-
     fn get_dof_value_for_index_and_flip(
         &self,
         context: &Self::SliceContext,
@@ -225,80 +203,18 @@ where
     ) -> Self::DOFType {
         context.state[*index].new_value_for_cluster(flip)
     }
-    fn get_cluster_by_timeslice(&self, context: &Self::SliceContext, cluster: &Self::Cluster) -> impl IntoIterator<Item = (Self::TimesliceIndex, Self::ClusterSlice)> {
-        let (start_index, start_endcaps) = cluster.indices_at_slice.iter().map(|index| {
-            (index, context.op_endcaps[*index].as_ref())
-        }).reduce(|(a_index, a_ends), (b_index, b_ends)| {
-            match (a_ends, b_ends) {
-                (ends, None) => (a_index, ends),
-                (None, ends) => (b_index, ends),
-                (Some(a_ends @ GenericClusterEndcaps {start_op: a_start_op, end_op: a_end_op}), Some(b_ends @ GenericClusterEndcaps {start_op: b_start_op, end_op: b_end_op})) => {
-                    let a_wrapped_time = a_start_op.timeslice + if a_start_op.timeslice > context.timeslice { 0 } else { self.get_number_of_time_slices() };
-                    let b_wrapped_time = b_start_op.timeslice + if b_start_op.timeslice > context.timeslice { 0 } else { self.get_number_of_time_slices() };
-                    if a_wrapped_time < b_wrapped_time {
-                        (a_index, Some(a_ends))
-                    } else {
-                        (b_index, Some(b_ends))
-                    }
-                }
-            }
-        }).expect("Cluster should contain at least one DOF.");
 
-        let timeslice_to_start_at = if let Some(start_endcaps) = start_endcaps {
-            start_endcaps.start_op.timeslice
-        } else {
-            // Cluster has no endcaps whatsoever!
-            context.timeslice
-        };
-
-        let cluster_hashmap = cluster.indices_at_slice.iter().copied().filter(|index| {
-            if let Some(endcaps) = context.op_endcaps[*index].as_ref() {
-                let start_time = endcaps.start_op.timeslice;
-                let end_time = endcaps.end_op.timeslice;
-
-                if start_time < end_time {
-                    (start_time < timeslice_to_start_at) && (timeslice_to_start_at < end_time)
-                } else {
-                    ! ( (end_time < timeslice_to_start_at) && (timeslice_to_start_at < start_time) )
-                }
-            } else {
-                // If no endcaps, then whole timeline is in the cluster.
-                true
-            }
-        }).collect();
-
-        ClusterIterator::new(
-            timeslice_to_start_at,
-            &context.op_endcaps,
-            cluster_hashmap,
-        )
-    }
-
-    fn get_graph_context_at_cluster_start(
-        &self,
-        original_slice_context: &Self::SliceContext,
-        cluster: &Self::Cluster,
-    ) -> GraphContext<Self::DOFType, Link<Self::TimesliceIndex>> {
+    fn get_slice_for_start_of_cluster(&self, cluster: &Self::Cluster) -> Self::ClusterSlice {
         todo!()
     }
 
-    fn get_next_relevant_context_for_cluster(&self, context: GraphContext<Self::DOFType, Link<Self::TimesliceIndex>>, cluster: &Self::Cluster) -> GraphContext<Self::DOFType, Link<Self::TimesliceIndex>> {
+    fn get_next_slice(&self, _: &<Self as MatrixTermRotationUpdate>::Cluster, _: <Self as MatrixTermRotationUpdate>::ClusterSlice) -> Option<<Self as MatrixTermRotationUpdate>::ClusterSlice> { todo!() }
+
+    fn get_weight_associated_with_term_at_slice_with_flip(&self, cluster: &Self::Cluster, cluster_slice: &Self::ClusterSlice, flip: &Self::ClusterFlipLabel, term: &Self::MatrixTerm) -> f64 {
         todo!()
     }
 
-    fn get_terms_affected_by_cluster_flips(&self, cluster: &Self::Cluster) -> impl IntoIterator<Item=Self::MatrixTerm> {
-        todo!();
-        None
-    }
-
-
-    fn get_timeslice_for_start_of_cluster(&self, context: &Self::SliceContext, cluster: &Self::Cluster) -> usize {
-        let indices_and_endcaps = cluster.indices_at_slice.iter().map(|index| {
-            (index, context.op_endcaps[*index].as_ref())
-        });
-
-
-
+    fn perform_cluster_update<R>(&mut self, cluster: Self::Cluster, cluster_flip_label: Self::ClusterFlipLabel) -> bool {
         todo!()
     }
 }
@@ -377,27 +293,14 @@ pub struct GenericClusterInformation {
     indices_at_slice: Vec<usize>,
 }
 
+pub struct GenericClusterSlice;
 
-pub struct ClusterIterator<'a> {
-    current_timeslice: usize,
-    generic_cluster_endcaps: &'a [Option<GenericClusterEndcaps>],
-    cluster_at_timeslice: HashSet<usize>
-}
-
-impl<'a> ClusterIterator<'a> {
-    fn new(starting_timeslice: usize, endcaps: &'a [Option<GenericClusterEndcaps>], starting_cluster: HashSet<usize>) -> Self {
-        Self {
-            current_timeslice: starting_timeslice,
-            generic_cluster_endcaps: endcaps,
-            cluster_at_timeslice: starting_cluster,
-        }
+impl<T> ClusterSliceData<T> for GenericClusterSlice {
+    fn get_timeslice(&self) -> &T {
+        todo!()
     }
-}
 
-impl<'a> Iterator for &'a ClusterIterator {
-    type Item = &'a HashSet<usize>;
-
-    fn next(&mut self) -> Option<Self::Item> {
+    fn get_number_of_cluster_dof(&self) -> usize {
         todo!()
     }
 }
