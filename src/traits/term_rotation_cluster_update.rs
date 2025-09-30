@@ -1,10 +1,10 @@
 use crate::traits::graph_traits::{GraphNode, LinkedGraphNode, TimeSlicedGraph};
 use crate::traits::graph_weights::GraphWeight;
-use num_traits::{One, Zero};
+use num_traits::{Float, One, Zero};
 use rand::Rng;
 use std::cmp::min;
 use std::fmt::Debug;
-use std::ops::{AddAssign, Mul};
+use std::ops::{Add, Mul};
 
 pub trait MatrixTermRotationUpdate: TimeSlicedGraph + GraphWeight
 where
@@ -245,7 +245,9 @@ where
     R: Rng,
 {
     let total_num_terms = weights.iter().map(|w| w.n_occupied_slices).sum::<usize>();
-    let total_weights = get_weights_for_flips(flip_labels.len(), weights);
+    let total_weights = get_weights_for_flips(flip_labels.len(), weights)
+        .into_iter()
+        .collect::<Vec<_>>();
     let normalization = total_weights.iter().sum::<f64>();
     let mut choice = rng.random::<f64>() * normalization;
     let (flip_choice, _) = flip_labels
@@ -261,41 +263,201 @@ where
     (flip_choice, vec![])
 }
 
-fn get_weights_for_flips<T, P>(n_flip_labels: usize, weights: &[ClusterWeights<T, P>]) -> Vec<P>
+fn allocate_terms_to_timeslices<T, P, R>(
+    weights: &[ClusterWeights<T, P>],
+    flip_label_index: usize,
+    mut rng: R,
+) -> Vec<&T>
 where
-    P: Mul<P, Output = P> + AddAssign<P> + One + Zero + Debug,
-    for<'a> P: AddAssign<&'a P>,
+    R: Rng,
+    P: Mul<P, Output = P> + One + Clone + Debug,
+    for<'a> P: Add<&'a P, Output = P>,
     for<'a, 'b> &'a P: Mul<&'b P, Output = P>,
 {
     let total_num_terms = weights.iter().map(|w| w.n_occupied_slices).sum::<usize>();
+    let mut weight_arrays = vec![];
 
+    let mut last_weights = vec![P::one()];
+    for w in weights {
+        for _ in &w.timeslices {
+            get_next_weight_array_from_previous(
+                total_num_terms,
+                &mut last_weights,
+                &w.weights_per_flip_label[flip_label_index],
+            );
+            weight_arrays.push(last_weights.clone());
+        }
+    }
+
+    let mut timeslices = vec![];
+    let timeslices_iter = weights.iter().rev().flat_map(|w| w.timeslices.iter().rev());
+    let mut terms_to_allocate = total_num_terms;
+    for (t, warr) in timeslices_iter.zip(weight_arrays.iter().rev()) {
+        debug_assert_eq!(terms_to_allocate + timeslices.len(), total_num_terms);
+
+        // The weight comes from up to two sources, randomly choose one based on the related
+        // contribution. If the choice is an insertion, mark the timeslices in the timeslices array.
+
+        let total_weight = &warr[terms_to_allocate];
+
+        todo!()
+    }
+
+    timeslices.reverse();
+    timeslices
+}
+
+fn get_weights_for_flips<T, P>(
+    n_flip_labels: usize,
+    weights: &[ClusterWeights<T, P>],
+) -> impl IntoIterator<Item = P>
+where
+    P: Mul<P, Output = P> + One + Clone + Debug,
+    for<'a> P: Add<&'a P, Output = P>,
+    for<'a, 'b> &'a P: Mul<&'b P, Output = P>,
+{
+    let total_num_terms = weights.iter().map(|w| w.n_occupied_slices).sum::<usize>();
     (0..n_flip_labels)
-        .map(|flip_label| {
-            let mut last_weights = vec![P::one()];
-            for w in weights {
-                for _ in &w.timeslices {
-                    // Can add at most a single term per t
-                    last_weights = (0..=min(last_weights.len(), total_num_terms))
-                        .map(|n_terms| {
-                            let mut weight = P::zero();
-                            if n_terms > 0 {
-                                weight += &last_weights[n_terms - 1]
-                                    * &w.weights_per_flip_label[flip_label];
-                            }
-                            if n_terms < last_weights.len() {
-                                weight += &last_weights[n_terms];
-                            }
-                            weight
-                        })
-                        .collect();
-                }
+        .map(move |flip_label| get_weight_for_flip_label(weights, flip_label, total_num_terms))
+}
+
+fn get_weight_for_flip_label<T, P>(
+    weights: &[ClusterWeights<T, P>],
+    flip_label_index: usize,
+    total_num_terms: usize,
+) -> P
+where
+    P: Mul<P, Output = P> + One + Clone + Debug,
+    for<'a> P: Add<&'a P, Output = P>,
+    for<'a, 'b> &'a P: Mul<&'b P, Output = P>,
+{
+    debug_assert_eq!(
+        total_num_terms,
+        weights.iter().map(|w| w.n_occupied_slices).sum::<usize>()
+    );
+
+    let mut last_weights = vec![P::one()];
+    for w in weights {
+        for _ in &w.timeslices {
+            get_next_weight_array_from_previous(
+                total_num_terms,
+                &mut last_weights,
+                &w.weights_per_flip_label[flip_label_index],
+            );
+        }
+    }
+    debug_assert_eq!(last_weights.len(), total_num_terms + 1);
+    last_weights
+        .pop()
+        .expect("Vector must be of length at least 1")
+}
+
+/// Reads previous set of weights from the buffer then writes the new set.
+fn get_next_weight_array_from_previous<P>(
+    total_num_terms: usize,
+    last_weights_buffer: &mut Vec<P>,
+    insertion_weight: &P,
+) where
+    P: Mul<P, Output = P> + One + Clone + Debug,
+    for<'a> P: Add<&'a P, Output = P>,
+    for<'a, 'b> &'a P: Mul<&'b P, Output = P>,
+{
+    let old_vec_size = last_weights_buffer.len();
+    let new_vec_size = min(last_weights_buffer.len(), total_num_terms) + 1;
+    last_weights_buffer.resize(new_vec_size, P::one());
+    for n_terms in (0..new_vec_size).rev() {
+        // Written to avoid P::zero() so we can work in logspace if desired.
+        let new_weight = match n_terms {
+            n if n > 0 && n < old_vec_size => {
+                (&last_weights_buffer[n - 1] * insertion_weight) + &last_weights_buffer[n]
             }
-            debug_assert_eq!(last_weights.len(), total_num_terms + 1);
-            last_weights
-                .pop()
-                .expect("Vector must be of length at least 1")
-        })
-        .collect::<Vec<P>>()
+            n if n > 0 => &last_weights_buffer[n - 1] * insertion_weight,
+            n if n < old_vec_size => last_weights_buffer[n].clone(),
+            _ => unreachable!(),
+        };
+        last_weights_buffer[n_terms] = new_weight;
+    }
+}
+
+#[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+pub struct LogWrapper<P> {
+    logit: P,
+}
+
+impl<P> LogWrapper<P>
+where
+    P: Float,
+{
+    pub fn new(p: P) -> Self {
+        Self { logit: p.ln() }
+    }
+
+    pub fn dissolve(self) -> P {
+        self.logit.exp()
+    }
+
+    pub fn ln_raw(self) -> P {
+        self.logit
+    }
+}
+
+impl<P> One for LogWrapper<P>
+where
+    P: Zero,
+{
+    fn one() -> Self {
+        Self { logit: P::zero() }
+    }
+}
+
+impl<P> Mul for LogWrapper<P>
+where
+    P: Add<P, Output = P>,
+{
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self {
+            logit: self.logit.add(rhs.logit),
+        }
+    }
+}
+
+impl<'a, 'b, P> Mul<&'b LogWrapper<P>> for &'a LogWrapper<P>
+where
+    for<'c> &'a P: Add<&'c P, Output = P>,
+{
+    type Output = LogWrapper<P>;
+
+    fn mul(self, rhs: &'b LogWrapper<P>) -> Self::Output {
+        Self::Output {
+            logit: (&self.logit).add(&rhs.logit),
+        }
+    }
+}
+
+impl<P> Add for LogWrapper<P>
+where
+    P: Mul<P, Output = P> + Float,
+{
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        let max_p = self.logit.max(rhs.logit);
+        let new_logit = max_p + ((self.logit - max_p).exp() + (rhs.logit - max_p).exp()).ln();
+        Self { logit: new_logit }
+    }
+}
+
+impl<'a, P> Add<&'a LogWrapper<P>> for LogWrapper<P>
+where
+    P: Mul<&'a P, Output = P> + Float,
+{
+    type Output = Self;
+    fn add(self, rhs: &'a Self) -> Self {
+        let max_p = self.logit.max(rhs.logit);
+        let new_logit = max_p + ((self.logit - max_p).exp() + (rhs.logit - max_p).exp()).ln();
+        Self { logit: new_logit }
+    }
 }
 
 #[cfg(test)]
@@ -303,16 +465,42 @@ mod cluster_flip_tests {
     use super::*;
 
     #[test]
-    fn test_single_sector_weights() {
+    fn test_logit_math_mult() {
+        let x = 1.2345;
+        let y = 1.1234;
+        let xy = x * y;
+        let lx = LogWrapper::new(x);
+        let ly = LogWrapper::new(y);
+        let lxy = lx * ly;
+
+        assert!((xy - lxy.dissolve()).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_logit_math_add() {
+        let x = 1.2345;
+        let y = 1.1234;
+        let xy = x + y;
+        let lx = LogWrapper::new(x);
+        let ly = LogWrapper::new(y);
+        let lxy = lx + ly;
+
+        assert!((xy - lxy.dissolve()).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_single_sector_weights_simple() {
         let n_flip_labels = 2;
-        let initial_weights = vec![1., 2.];
+        let initial_weights = vec![1, 2];
         let weights = vec![ClusterWeights::<(), _> {
             timeslices: vec![()],
             n_occupied_slices: 1,
             weights_per_flip_label: initial_weights.clone(),
         }];
 
-        let final_weights = get_weights_for_flips(n_flip_labels, &weights);
+        let final_weights = get_weights_for_flips(n_flip_labels, &weights)
+            .into_iter()
+            .collect::<Vec<_>>();
 
         assert_eq!(final_weights, initial_weights);
     }
@@ -333,7 +521,9 @@ mod cluster_flip_tests {
                 weights_per_flip_label: initial_weights.clone(),
             },
         ];
-        let final_weights = get_weights_for_flips(n_flip_labels, &weights);
+        let final_weights = get_weights_for_flips(n_flip_labels, &weights)
+            .into_iter()
+            .collect::<Vec<_>>();
         assert_eq!(final_weights, vec![1 * 1, 2 * 2]);
     }
 
@@ -353,7 +543,9 @@ mod cluster_flip_tests {
                 weights_per_flip_label: initial_weights.clone(),
             },
         ];
-        let final_weights = get_weights_for_flips(n_flip_labels, &weights);
+        let final_weights = get_weights_for_flips(n_flip_labels, &weights)
+            .into_iter()
+            .collect::<Vec<_>>();
         assert_eq!(final_weights, vec![1 + 1, 3 + 3]);
 
         let weights = vec![
@@ -368,7 +560,9 @@ mod cluster_flip_tests {
                 weights_per_flip_label: initial_weights.clone(),
             },
         ];
-        let final_weights = get_weights_for_flips(n_flip_labels, &weights);
+        let final_weights = get_weights_for_flips(n_flip_labels, &weights)
+            .into_iter()
+            .collect::<Vec<_>>();
         assert_eq!(final_weights, vec![1 + 1, 3 + 3]);
     }
 
@@ -382,14 +576,18 @@ mod cluster_flip_tests {
             n_occupied_slices: 1,
             weights_per_flip_label: initial_weights.clone(),
         }];
-        let final_weights = get_weights_for_flips(n_flip_labels, &weights);
+        let final_weights = get_weights_for_flips(n_flip_labels, &weights)
+            .into_iter()
+            .collect::<Vec<_>>();
         assert_eq!(final_weights, vec![n_timeslices, n_timeslices * 2]);
         let weights = vec![ClusterWeights::<(), _> {
             timeslices: vec![(); n_timeslices],
             n_occupied_slices: n_timeslices - 1,
             weights_per_flip_label: initial_weights.clone(),
         }];
-        let final_weights = get_weights_for_flips(n_flip_labels, &weights);
+        let final_weights = get_weights_for_flips(n_flip_labels, &weights)
+            .into_iter()
+            .collect::<Vec<_>>();
         assert_eq!(
             final_weights,
             vec![
@@ -397,5 +595,22 @@ mod cluster_flip_tests {
                 n_timeslices * 2_usize.pow((n_timeslices - 1) as u32)
             ]
         );
+    }
+
+    #[test]
+    fn test_single_sector_weights_log() {
+        let n_flip_labels = 2;
+        let initial_weights = vec![LogWrapper::new(1.), LogWrapper::new(2.)];
+        let weights = vec![ClusterWeights::<(), _> {
+            timeslices: vec![()],
+            n_occupied_slices: 1,
+            weights_per_flip_label: initial_weights.clone(),
+        }];
+
+        let final_weights = get_weights_for_flips(n_flip_labels, &weights)
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        assert_eq!(final_weights, initial_weights);
     }
 }
