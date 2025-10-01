@@ -1,11 +1,10 @@
-use rand::Rng;
 use crate::qmc::{GenericQMC, MatrixTermData};
-use crate::traits::term_rotation_cluster_update::{ClusterSliceData, MatrixTermRotationUpdate};
 use crate::traits::graph_traits::{DOFTypeTrait, GraphNode, GraphStateNavigator, Link};
 use crate::traits::graph_weights::GraphWeight;
+use crate::traits::term_rotation_cluster_update::{ClusterSliceData, MatrixTermRotationUpdate};
+use rand::Rng;
 
-impl<DOF, Data, GI> MatrixTermRotationUpdate
-    for GenericQMC<DOF, Data, GI>
+impl<DOF, Data, GI> MatrixTermRotationUpdate for GenericQMC<DOF, Data, GI>
 where
     DOF: DOFTypeTrait + ClusterDOF,
     Data: MatrixTermData<f64> + ClusterEndcap,
@@ -24,7 +23,7 @@ where
 
         for t in *timeslice..=0 {
             if let Some(op) = self.time_slices[t].as_ref() {
-                for (relative_index, index) in op.get_indices().into_iter().copied().enumerate() {
+                for (relative_index, index) in op.get_indices().iter().copied().enumerate() {
                     if last_op_for_index[index].is_none() {
                         last_op_for_index[index] = Some(Link::<usize> {
                             timeslice: t,
@@ -48,9 +47,8 @@ where
                         .as_ref()
                         .unwrap()
                         .output_state[ce.relative_index]
-                        .clone()
                 } else {
-                    self.initial_state[index].clone()
+                    self.initial_state[index]
                 }
             })
             .collect::<Vec<_>>();
@@ -146,7 +144,17 @@ where
         })
     }
 
-    fn get_cluster_from_starting_index<R>(&self, _: &Self::SliceContext, _: &Self::DOFIndex, _: &mut R) -> Self::Cluster where R: Rng { todo!() }
+    fn get_cluster_from_starting_index<R>(
+        &self,
+        _: &Self::SliceContext,
+        _: &Self::DOFIndex,
+        _: &mut R,
+    ) -> Self::Cluster
+    where
+        R: Rng,
+    {
+        todo!()
+    }
 
     fn get_indices_in_cluster_at_timeslice(
         &self,
@@ -165,18 +173,10 @@ where
                     let end_t = endcap.end_op.timeslice;
                     if start_t < end_t {
                         // t must be between the two
-                        if timeslice <= end_t && timeslice > start_t {
-                            true
-                        } else {
-                            false
-                        }
+                        timeslice <= end_t && timeslice > start_t
                     } else if end_t < start_t {
                         // t must not be between the two
-                        if timeslice < start_t && timeslice >= end_t {
-                            false
-                        } else {
-                            true
-                        }
+                        !(timeslice < start_t && timeslice >= end_t)
                     } else {
                         // if they are equal, include the whole line
                         true
@@ -208,13 +208,29 @@ where
         todo!()
     }
 
-    fn get_next_slice(&self, _: &<Self as MatrixTermRotationUpdate>::Cluster, _: <Self as MatrixTermRotationUpdate>::ClusterSlice) -> Option<<Self as MatrixTermRotationUpdate>::ClusterSlice> { todo!() }
-
-    fn get_weight_associated_with_term_at_slice_with_flip(&self, cluster: &Self::Cluster, cluster_slice: &Self::ClusterSlice, flip: &Self::ClusterFlipLabel, term: &Self::MatrixTerm) -> f64 {
+    fn get_next_slice(
+        &self,
+        _: &<Self as MatrixTermRotationUpdate>::Cluster,
+        _: <Self as MatrixTermRotationUpdate>::ClusterSlice,
+    ) -> Option<<Self as MatrixTermRotationUpdate>::ClusterSlice> {
         todo!()
     }
 
-    fn perform_cluster_update<R>(&mut self, cluster: Self::Cluster, cluster_flip_label: Self::ClusterFlipLabel) -> bool {
+    fn get_weight_associated_with_term_at_slice_with_flip(
+        &self,
+        cluster: &Self::Cluster,
+        cluster_slice: &Self::ClusterSlice,
+        flip: &Self::ClusterFlipLabel,
+        term: &Self::MatrixTerm,
+    ) -> f64 {
+        todo!()
+    }
+
+    fn perform_cluster_update<R>(
+        &mut self,
+        cluster: Self::Cluster,
+        cluster_flip_label: Self::ClusterFlipLabel,
+    ) -> bool {
         todo!()
     }
 }
@@ -274,7 +290,7 @@ pub trait ClusterDOF {
 
     fn new_value_for_cluster(&self, label: &Self::ClusterLabel) -> Self;
 
-    fn get_cluster_labels() -> impl IntoIterator<Item=Self::ClusterLabel>;
+    fn get_cluster_labels() -> impl IntoIterator<Item = Self::ClusterLabel>;
 }
 
 pub struct GenericSliceContext<T> {

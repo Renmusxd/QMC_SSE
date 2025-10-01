@@ -7,10 +7,10 @@ use std::cmp::max;
 pub mod autocorr;
 pub mod cluster_impl;
 pub mod diagonal_impl;
-pub mod term_rotator_impl;
 pub mod graph_mod_impl;
 pub mod naive_flip_impl;
 pub mod navigator_impl;
+pub mod term_rotator_impl;
 pub mod weight_impl;
 
 pub type MatrixTermHandle = usize;
