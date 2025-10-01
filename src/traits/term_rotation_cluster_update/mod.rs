@@ -22,7 +22,7 @@ where
     type SliceContext;
     type Cluster;
     type ClusterSlice: ClusterSliceData<Self::TimesliceIndex>;
-    type ClusterFlipLabel;
+    type ClusterFlipLabel: FlipDof<Self::DOFType>;
 
     fn get_classical_slice_context(&self, timeslice: &Self::TimesliceIndex) -> Self::SliceContext;
 
@@ -205,7 +205,7 @@ where
             .collect::<Vec<_>>();
         let weights = self.get_slices_and_cluster_weights::<LogWrapper<f64>>(&context, &cluster);
         let (flip_label, timeslices) = get_term_allocation_for_weights(&flip_labels, &weights, rng);
-        self.perform_cluster_update(cluster, flip_label, timeslices)
+        self.perform_cluster_update(cluster, flip_label, &weights, timeslices)
     }
 
     fn term_toggles_cluster_dofs(
@@ -214,32 +214,84 @@ where
         term: &Self::MatrixTerm,
     ) -> impl IntoIterator<Item = Self::DOFIndex>;
 
-    fn get_variable_and_node_information_from_context(
+    fn get_start_of_cluster_information_from_context(
         &self,
         context: Self::ClusterSlice,
         cluster: &Self::Cluster,
-    ) -> (Vec<Self::DOFType>, Vec<Link<Self::TimesliceIndex>>);
+    ) -> (
+        Vec<Self::DOFType>,
+        Vec<Link<Self::TimesliceIndex>>,
+        Vec<bool>,
+    );
 
-    fn get_timeslices_of_end_of_cluster(&self, cluster: &Self::Cluster) -> Self::TimesliceIndex;
+    fn set_node_inputs_from_array(
+        &mut self,
+        timeslice: &Self::TimesliceIndex,
+        input_state: &[Self::DOFType],
+    ) -> Option<&Self::Node>;
+    fn set_node_outputs_from_array(
+        &mut self,
+        timeslice: &Self::TimesliceIndex,
+        output_state: &[Self::DOFType],
+    ) -> Option<&Self::Node>;
 
-    fn perform_cluster_update(
+    fn get_timeslice_of_end_of_cluster(&self, cluster: &Self::Cluster) -> Self::TimesliceIndex;
+
+    fn perform_cluster_update<P>(
         &mut self,
         cluster: Self::Cluster,
         cluster_flip_label: &Self::ClusterFlipLabel,
+        weights: &[ClusterWeights<Self::TimesliceIndex, P>],
         term_timeslices: Vec<&Self::TimesliceIndex>,
     ) -> bool {
         let mut context = self.get_slice_for_start_of_cluster(&cluster);
         let mut t = Some(context.get_timeslice().clone());
-        let (mut variables, mut last_nodes) =
-            self.get_variable_and_node_information_from_context(context, &cluster);
-        let mut dof_in_cluster = vec![false; self.get_n_dof()];
+        let (mut variables, mut last_nodes, mut dof_in_cluster) =
+            self.get_start_of_cluster_information_from_context(context, &cluster);
 
         let mut insertion_index = 0;
         while let Some(timeslice) = t {
-            let node = self.get_node(&timeslice);
-            if let Some(node) = node {
-                // First, check if the node changes the cluster.
+            // Check if this node can be affected.
+            let should_be_left_alone = self
+                .get_node(&timeslice)
+                .map(|node| {
+                    let is_off_diagonal = !node.is_diagonal();
+                    let term = self.get_matrix_term_for_node(node);
+                    let is_fixed = !self.is_term_rotatable(&cluster, term);
+                    is_off_diagonal || is_fixed
+                })
+                .unwrap_or(false);
 
+            if !should_be_left_alone {
+                // Always remove the node, and then maybe re-add a new one.
+                self.remove_node(&timeslice);
+            } else {
+                // If not left alone, make it consistent with the background and flip variables.
+                self.set_node_inputs_from_array(&timeslice, &variables);
+                if let Some(node) = self.get_node(&timeslice) {
+                    // Check if the node changes the cluster.
+                    let term = self.get_matrix_term_for_node(node);
+                    self.term_toggles_cluster_dofs(&cluster, term)
+                        .into_iter()
+                        .for_each(|global_index| {
+                            let index = global_index.into();
+                            dof_in_cluster[index] = !dof_in_cluster[index];
+                            cluster_flip_label.flip_ref(&mut variables[index]);
+                        });
+                }
+                self.set_node_outputs_from_array(&timeslice, &variables);
+            }
+
+            while timeslice.lt(&term_timeslices[insertion_index]) {
+                insertion_index += 1;
+            }
+            if timeslice.eq(&term_timeslices[insertion_index]) {
+                // Insert a new node.
+                todo!();
+            }
+
+            // Now that the node is settled, keep track of which indices need to refer back to it.
+            if let Some(node) = self.get_node(&timeslice) {
                 // Set the previous node values.
                 node.get_indices()
                     .iter()
@@ -252,35 +304,7 @@ where
                         let global_index: usize = global_index.clone().into();
                         last_nodes[global_index] = link;
                     });
-
-                // Now, set the variable context.
-                if !node.is_diagonal() {
-                    let term = self.get_matrix_term_for_node(node);
-                    self.term_toggles_cluster_dofs(&cluster, &term)
-                        .into_iter()
-                        .for_each(|global_index| {
-                            let index = global_index.into();
-                            dof_in_cluster[index] = !dof_in_cluster[index];
-                        });
-
-                    node.get_indices()
-                        .iter()
-                        .zip(node.get_input_state_mut().iter().zip(node.get_output_state().iter()))
-                        .enumerate()
-                        .for_each(|(relative_index, (global_index, (input_dof_value, output_dof_value))| {
-                            // Set the previous nodes and set the variable values.
-                            let global_index: usize = global_index.clone().into();
-                            *input_dof_value = variables[global_index].clone();
-
-                            if dof_in_cluster[global_index] {
-                                variables[global_index] = dof_value.flip(cluster_flip_label);
-                            } else {
-                                variables[global_index] = dof_value.clone();
-                            }
-                        });
-                }
             }
-
             t = self.get_next_timeslice(timeslice);
         }
 
@@ -365,4 +389,9 @@ where
     let flip_choice = &flip_labels[flip_index];
     let allocations = allocate_terms_to_timeslices(weights, flip_index, rng);
     (flip_choice, allocations)
+}
+
+pub trait FlipDof<DOFType> {
+    fn flip(&self, dof: DOFType) -> DOFType;
+    fn flip_ref(&self, dof: &mut DOFType);
 }
