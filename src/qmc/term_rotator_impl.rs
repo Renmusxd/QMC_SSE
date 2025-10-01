@@ -225,14 +225,6 @@ where
     ) -> f64 {
         todo!()
     }
-
-    fn perform_cluster_update<R>(
-        &mut self,
-        cluster: Self::Cluster,
-        cluster_flip_label: Self::ClusterFlipLabel,
-    ) -> bool {
-        todo!()
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]

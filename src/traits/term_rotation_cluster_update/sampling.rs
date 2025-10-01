@@ -1,109 +1,98 @@
-use num_traits::Float;
+use std::iter::Sum;
+use std::ops::SubAssign;
+
+use crate::utils::logwrapper::LogWrapper;
+use num_traits::{Float, Zero};
 use rand::Rng;
 use rand::distr::Uniform;
-use crate::utils::logwrapper::LogWrapper;
+use rand::distr::uniform::SampleUniform;
 
 pub trait SampleFraction<Rhs = Self> {
-    fn sample<R: Rng>(self, normalization: Rhs, rng: R) -> bool;
+    fn sample<R: Rng>(self, normalization: Rhs, rng: &mut R) -> bool;
 }
 
-impl SampleFraction for f32 {
-    fn sample<R: Rng>(self, normalization: Self, mut r: R) -> bool {
-        if self >= normalization {
-            panic!("Normalization must not be smaller than weight.")
-        }
-        r.sample(
-            Uniform::new(0.0, normalization).expect("Normalization must not be zero or negative."),
+pub trait SampleFromWeights: Sized {
+    fn sample_from_weights<R: Rng>(weights: &[Self], rng: &mut R) -> usize;
+}
+
+impl<T> SampleFraction for T
+where
+    T: SampleUniform + Zero + PartialOrd,
+{
+    fn sample<R: Rng>(self, normalization: Self, rng: &mut R) -> bool {
+        rng.sample(
+            Uniform::new(Self::zero(), normalization)
+                .expect("Normalization must not be zero or negative."),
         ) <= self
     }
 }
 
-impl SampleFraction for &f32 {
-    fn sample<R: Rng>(self, normalization: Self, r: R) -> bool {
-        f32::sample(*self, *normalization, r)
+impl<'a, T> SampleFraction<&'a T> for T
+where
+    T: Copy + SampleFraction,
+{
+    fn sample<R: Rng>(self, normalization: &'a Self, rng: &mut R) -> bool {
+        self.sample(*normalization, rng)
     }
 }
 
-impl SampleFraction for f64 {
-    fn sample<R: Rng>(self, normalization: Self, mut r: R) -> bool {
-        if self >= normalization {
-            panic!("Normalization must not be smaller than weight.")
-        }
-        r.sample(
-            Uniform::new(0.0, normalization).expect("Normalization must not be zero or negative."),
-        ) <= self
-    }
-}
-
-impl SampleFraction for &f64 {
-    fn sample<R: Rng>(self, normalization: Self, r: R) -> bool {
-        f64::sample(*self, *normalization, r)
-    }
-}
-
-impl SampleFraction for u32 {
-    fn sample<R: Rng>(self, normalization: Self, mut r: R) -> bool {
-        if self >= normalization {
-            panic!("Normalization must not be smaller than weight.")
-        }
-        r.sample(
-            Uniform::new(0, normalization).expect("Normalization must not be zero or negative."),
-        ) <= self
-    }
-}
-
-impl SampleFraction for &u32 {
-    fn sample<R: Rng>(self, normalization: Self, r: R) -> bool {
-        u32::sample(*self, *normalization, r)
-    }
-}
-
-impl SampleFraction for u64 {
-    fn sample<R: Rng>(self, normalization: Self, mut r: R) -> bool {
-        if self >= normalization {
-            panic!("Normalization must not be smaller than weight.")
-        }
-        r.sample(
-            Uniform::new(0, normalization).expect("Normalization must not be zero or negative."),
-        ) <= self
-    }
-}
-
-impl SampleFraction for &u64 {
-    fn sample<R: Rng>(self, normalization: Self, r: R) -> bool {
-        u64::sample(*self, *normalization, r)
-    }
-}
-
-impl SampleFraction for usize {
-    fn sample<R: Rng>(self, normalization: Self, mut r: R) -> bool {
-        if self > normalization {
-            panic!("Normalization must not be smaller than weight.")
-        }
-        r.sample(
-            Uniform::new(0, normalization).expect("Normalization must not be zero or negative."),
-        ) <= self
-    }
-}
-
-impl SampleFraction for &usize {
-    fn sample<R: Rng>(self, normalization: Self, r: R) -> bool {
-        usize::sample(*self, *normalization, r)
-    }
-}
-
-impl<P> SampleFraction for LogWrapper<P> where P: SampleFraction + Float {
-    fn sample<R: Rng>(self, normalization: Self, r: R) -> bool {
+impl<P> SampleFraction for LogWrapper<P>
+where
+    P: SampleFraction + Float,
+{
+    fn sample<R: Rng>(self, normalization: Self, rng: &mut R) -> bool {
         let s = self.dissolve();
         let n = normalization.dissolve();
-        s.sample(n, r)
+        s.sample(n, rng)
     }
 }
 
-impl<P> SampleFraction for &LogWrapper<P> where P: SampleFraction + Float {
-    fn sample<R: Rng>(self, normalization: Self, r: R) -> bool {
+impl<P> SampleFraction for &LogWrapper<P>
+where
+    P: SampleFraction + Float,
+{
+    fn sample<R: Rng>(self, normalization: Self, rng: &mut R) -> bool {
         let s = self.dissolve();
         let n = normalization.dissolve();
-        s.sample(n, r)
+        s.sample(n, rng)
+    }
+}
+
+impl<T> SampleFromWeights for T
+where
+    T: SampleUniform + Zero + PartialOrd,
+    for<'a> T: SubAssign<&'a T> + Sum<&'a T>,
+{
+    fn sample_from_weights<R: Rng>(weights: &[Self], rng: &mut R) -> usize {
+        let total_weight = weights.iter().sum::<Self>();
+        let mut choice = rng.sample(
+            Uniform::new(Self::zero(), total_weight).expect("Total weight cannot be zero."),
+        );
+        for (i, w) in weights.iter().enumerate() {
+            choice -= w;
+            if choice <= Self::zero() {
+                return i;
+            }
+        }
+        unreachable!("Cannot reach each of loop without choosing an index.");
+    }
+}
+
+impl<P> SampleFromWeights for LogWrapper<P>
+where
+    P: Float + SampleUniform + SubAssign + Sum,
+{
+    fn sample_from_weights<R: Rng>(weights: &[Self], rng: &mut R) -> usize {
+        // Could do Gimbel sampling trick if desired.
+        let total_weight = weights.iter().map(|x| x.dissolve()).sum::<P>();
+        let mut choice = rng
+            .sample(Uniform::new(P::zero(), total_weight).expect("Total weight cannot be zero."));
+        for (i, w) in weights.iter().enumerate() {
+            choice -= w.dissolve();
+            if choice <= P::zero() {
+                return i;
+            }
+        }
+        unreachable!("Cannot reach end of loop without choosing an index.");
     }
 }
