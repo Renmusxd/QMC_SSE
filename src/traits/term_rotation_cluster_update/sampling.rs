@@ -1,7 +1,7 @@
+use crate::utils::logwrapper::LogWrapper;
 use num_traits::Float;
 use rand::Rng;
 use rand::distr::Uniform;
-use crate::utils::logwrapper::LogWrapper;
 
 pub trait SampleFraction<Rhs = Self> {
     fn sample<R: Rng>(self, normalization: Rhs, rng: R) -> bool;
@@ -92,7 +92,10 @@ impl SampleFraction for &usize {
     }
 }
 
-impl<P> SampleFraction for LogWrapper<P> where P: SampleFraction + Float {
+impl<P> SampleFraction for LogWrapper<P>
+where
+    P: SampleFraction + Float,
+{
     fn sample<R: Rng>(self, normalization: Self, r: R) -> bool {
         let s = self.dissolve();
         let n = normalization.dissolve();
@@ -100,7 +103,10 @@ impl<P> SampleFraction for LogWrapper<P> where P: SampleFraction + Float {
     }
 }
 
-impl<P> SampleFraction for &LogWrapper<P> where P: SampleFraction + Float {
+impl<P> SampleFraction for &LogWrapper<P>
+where
+    P: SampleFraction + Float,
+{
     fn sample<R: Rng>(self, normalization: Self, r: R) -> bool {
         let s = self.dissolve();
         let n = normalization.dissolve();

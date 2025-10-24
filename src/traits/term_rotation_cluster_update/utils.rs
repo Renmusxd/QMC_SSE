@@ -37,7 +37,7 @@ where
     let timeslices_iter = weights.iter().rev().flat_map(|w| w.timeslices.iter().rev());
     for ((t, warr), wnextarr) in timeslices_iter
         .zip(weight_arrays.iter().rev())
-        .zip(weight_arrays[..weight_arrays.len()-1].iter().rev())
+        .zip(weight_arrays[..weight_arrays.len() - 1].iter().rev())
     {
         let terms_to_allocate = total_num_terms - timeslices.len();
 
@@ -53,10 +53,8 @@ where
                 timeslices.push(t);
             }
             terms_to_allocate => {
-                let weight_from_no_allocation = wnextarr[terms_to_allocate]
-                    .clone();
-                let no_allocate = weight_from_no_allocation
-                    .sample(total_weight, &mut rng);
+                let weight_from_no_allocation = wnextarr[terms_to_allocate].clone();
+                let no_allocate = weight_from_no_allocation.sample(total_weight, &mut rng);
                 if !no_allocate {
                     timeslices.push(t);
                 }

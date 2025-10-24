@@ -3,6 +3,7 @@ use crate::traits::graph_traits::{DOFTypeTrait, GraphNode, GraphStateNavigator, 
 use crate::traits::graph_weights::GraphWeight;
 use crate::traits::term_rotation_cluster_update::{ClusterSliceData, MatrixTermRotationUpdate};
 use rand::Rng;
+use crate::utils::indexlist::IndexList;
 
 impl<DOF, Data, GI> MatrixTermRotationUpdate for GenericQMC<DOF, Data, GI>
 where
@@ -13,7 +14,7 @@ where
     type SliceContext = GenericSliceContext<DOF>;
     type Cluster = GenericClusterInformation;
 
-    type ClusterSlice = GenericClusterSlice;
+    type ClusterSlice = GenericClusterSlice<Self::DOFType, Self::TimesliceIndex>;
 
     type ClusterFlipLabel = DOF::ClusterLabel;
 
@@ -146,14 +147,19 @@ where
 
     fn get_cluster_from_starting_index<R>(
         &self,
-        _: &Self::SliceContext,
-        _: &Self::DOFIndex,
+        slice_context: &Self::SliceContext,
+        index: &Self::DOFIndex,
         _: &mut R,
     ) -> Self::Cluster
     where
         R: Rng,
     {
-        todo!()
+        let indices_at_slice = self
+            .graph_information
+            .get_cluster_around_and_including_site(&slice_context.state, index)
+            .into_iter()
+            .collect::<Vec<_>>();
+        Self::Cluster { indices_at_slice }
     }
 
     fn get_indices_in_cluster_at_timeslice(
@@ -204,16 +210,94 @@ where
         context.state[*index].new_value_for_cluster(flip)
     }
 
-    fn get_slice_for_start_of_cluster(&self, cluster: &Self::Cluster) -> Self::ClusterSlice {
-        todo!()
+    fn get_slice_for_start_of_cluster(
+        &self,
+        cluster: &Self::Cluster,
+        context: &Self::SliceContext,
+    ) -> Self::ClusterSlice {
+        // Get the start of cluster, if there isn't one (Nones) just set it to 0.
+        let first_slice = context
+            .op_endcaps
+            .iter()
+            .try_fold(self.time_slices.len(), |previous_min_timeslice, op| {
+                match op {
+                    // Spans whole timeline.
+                    None => None,
+                    // Wraps so passes through 0.
+                    Some(op) if op.start_op.timeslice >= op.end_op.timeslice => None,
+                    // Doesn't wrap, checking for start.
+                    Some(op) => Some(op.start_op.timeslice.min(previous_min_timeslice))
+                }
+            })
+            .unwrap_or(0);
+
+        // Count the number of variables in cluster at start.
+        let cluster_indices = context
+            .op_endcaps
+            .iter()
+            .enumerate()
+            .filter(|(_, x)| match x {
+                None => true,
+                Some(x) => {
+                    if x.start_op.timeslice < x.end_op.timeslice {
+                        x.start_op.timeslice <= first_slice && first_slice < x.end_op.timeslice
+                    } else {
+                        // If wraps around edge.
+                        !(x.end_op.timeslice <= first_slice && first_slice < x.end_op.timeslice)
+                    }
+                },
+            }).map(|(x, _)| x).collect::<IndexList<usize, ()>>();
+
+        GenericClusterSlice {
+            timeslice: first_slice,
+            cluster_indices,
+            state: context.state.clone(),
+            previous_ops: context.previous_ops_for_indices.clone()
+        }
     }
 
     fn get_next_slice(
         &self,
-        _: &<Self as MatrixTermRotationUpdate>::Cluster,
-        _: <Self as MatrixTermRotationUpdate>::ClusterSlice,
-    ) -> Option<<Self as MatrixTermRotationUpdate>::ClusterSlice> {
-        todo!()
+        cluster: &Self::Cluster,
+        context: &Self::SliceContext,
+        mut slice: Self::ClusterSlice,
+    ) -> Option<Self::ClusterSlice> {
+        // Increase timeslice and check if it changes the number of cluster variables.
+        slice.timeslice += 1;
+        if self.time_slices.len() >= slice.timeslice {
+            return None;
+        }
+
+        // Set state and previous_ops for each affected index.
+        // Check if even possible to be a cluster endpoint, set bool.
+        let can_be_endpoint = if let Some(op) = self.time_slices[slice.timeslice].as_ref() {
+            op.get_indices().iter().zip(op.output_state.iter()).enumerate().for_each(|(relative_index, (index, val))| {
+                slice.previous_ops[*index] = Some(Link { timeslice: slice.timeslice, relative_index });
+                slice.state[*index] = val.clone();
+            });
+            let term = self.get_matrix_term_for_node(op);
+            let term = &self.all_term_data[term.matrix_data_entry];
+            matches!(term.get_node_type(), ClusterNodeType::ArbitraryFlipsAllowed)
+        } else {
+            false
+        };
+
+        if can_be_endpoint {
+            context.op_endcaps.iter().enumerate().for_each(|(index, x)| {
+                if let Some(x) = x {
+                    // Add unless about to be removed.
+                    if x.start_op.timeslice == slice.timeslice && x.end_op.timeslice != slice.timeslice {
+                        slice.cluster_indices.add(slice.timeslice);
+                    }
+                    // Remove so long as it wasn't just added.
+                    if x.end_op.timeslice == slice.timeslice && x.start_op.timeslice != slice.timeslice {
+                        slice.cluster_indices.remove_key(&slice.timeslice);
+                    }
+                }
+            });
+        }
+
+        Some(slice)
     }
 
     fn get_weight_associated_with_term_at_slice_with_flip(
@@ -223,15 +307,16 @@ where
         flip: &Self::ClusterFlipLabel,
         term: &Self::MatrixTerm,
     ) -> f64 {
-        todo!()
-    }
-
-    fn perform_cluster_update<R>(
-        &mut self,
-        cluster: Self::Cluster,
-        cluster_flip_label: Self::ClusterFlipLabel,
-    ) -> bool {
-        todo!()
+        let data = &self.all_term_data[term.matrix_data_entry];
+        let state = Self::DOFType::index_dimension(term.act_on_indices.iter().map(|index| {
+            let index_state = &cluster_slice.state[*index];
+            if cluster_slice.cluster_indices.exists(index) {
+                index_state.new_value_for_cluster(flip)
+            } else {
+                index_state.clone()
+            }
+        }));
+        data.get_matrix_entry(state, state)
     }
 }
 
@@ -309,14 +394,19 @@ pub struct GenericClusterInformation {
     indices_at_slice: Vec<usize>,
 }
 
-pub struct GenericClusterSlice;
+pub struct GenericClusterSlice<DOF,T> where T: Clone + Ord + Eq {
+    timeslice: usize,
+    cluster_indices: IndexList<usize, ()>,
+    state: Vec<DOF>,
+    previous_ops: Vec<Option<Link<T>>>
+}
 
-impl<T> ClusterSliceData<T> for GenericClusterSlice {
-    fn get_timeslice(&self) -> &T {
-        todo!()
+impl<DOF,T> ClusterSliceData<usize> for GenericClusterSlice<DOF,T>  where T: Clone + Ord + Eq {
+    fn get_timeslice(&self) -> &usize {
+        &self.timeslice
     }
 
     fn get_number_of_cluster_dof(&self) -> usize {
-        todo!()
+        self.cluster_indices.len()
     }
 }

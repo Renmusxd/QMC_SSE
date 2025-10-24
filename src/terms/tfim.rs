@@ -1,6 +1,7 @@
 use crate::qmc::MatrixTermData;
 use crate::qmc::cluster_impl::TermClusterExpander;
 use crate::qmc::naive_flip_impl::MatrixTermFlippable;
+use crate::qmc::term_rotator_impl::{ClusterEndcap, ClusterNodeType};
 use crate::traits::cluster_update::{DirectionEnum, NodeClusterExpansion};
 use crate::traits::graph_traits::DOFTypeTrait;
 use num_traits::{Signed, Zero};
@@ -165,6 +166,15 @@ impl<T> TermClusterExpander<bool> for TFIMTerm<T> {
         };
 
         ising_array.into_iter().take(num_to_select)
+    }
+}
+
+impl<T> ClusterEndcap for TFIMTerm<T> {
+    fn get_node_type(&self) -> ClusterNodeType {
+        match self {
+            TFIMTerm::ZZ(_) => ClusterNodeType::DiagonalMatrixTerm,
+            TFIMTerm::X(_) => ClusterNodeType::ArbitraryFlipsAllowed,
+        }
     }
 }
 

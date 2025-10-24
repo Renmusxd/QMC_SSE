@@ -3,7 +3,9 @@ pub mod utils;
 
 use crate::traits::graph_traits::{GraphNode, LinkedGraphNode, TimeSlicedGraph};
 use crate::traits::graph_weights::GraphWeight;
-use crate::traits::term_rotation_cluster_update::utils::{allocate_terms_to_timeslices, get_weights_for_flips};
+use crate::traits::term_rotation_cluster_update::utils::{
+    allocate_terms_to_timeslices, get_weights_for_flips,
+};
 use rand::Rng;
 
 pub trait MatrixTermRotationUpdate: TimeSlicedGraph + GraphWeight
@@ -60,13 +62,18 @@ where
         flip: &Self::ClusterFlipLabel,
     ) -> Self::DOFType;
 
-    fn get_slice_for_start_of_cluster(&self, cluster: &Self::Cluster) -> Self::ClusterSlice;
+    fn get_slice_for_start_of_cluster(
+        &self,
+        cluster: &Self::Cluster,
+        context: &Self::SliceContext,
+    ) -> Self::ClusterSlice;
     /// Returns the next slice, or None if the end of the cluster is reached.
     /// Should never return the start of cluster slice.
     fn get_next_slice(
         &self,
         cluster: &Self::Cluster,
-        existing_cluster_slice: Self::ClusterSlice,
+        context: &Self::SliceContext,
+        slice: Self::ClusterSlice,
     ) -> Option<Self::ClusterSlice>;
 
     /// Using the output weights of any nodes at this timeslices, calculate the total weight of all diagonal terms which could be added to the state.
@@ -97,18 +104,20 @@ where
             .sum::<f64>()
     }
 
-    fn get_slices_and_cluster_weights<M>(
+    fn get_slices_and_cluster_weights(
         &self,
         context: &Self::SliceContext,
         cluster: &Self::Cluster,
     ) -> Vec<ClusterWeights<Self::TimesliceIndex>> {
-        let mut cluster_slice = self.get_slice_for_start_of_cluster(cluster);
-        let first_timeslice = cluster_slice.get_timeslice().clone();
+        let mut cluster_slice = self.get_slice_for_start_of_cluster(cluster, context);
+        let timeslice = cluster_slice.get_timeslice().clone();
 
         let mut sections = vec![];
         let mut section = ClusterWeights::default();
         loop {
-            let nodetype = NodeType::from(self.get_node(cluster_slice.get_timeslice()));
+            let node = self.get_node(cluster_slice.get_timeslice()).map(|node| node.can_flip_states_arbitrarily());
+            todo!()
+
             if matches!(nodetype, NodeType::Diagonal | NodeType::Empty) {
                 if section.weights_per_flip_label.is_empty() {
                     section.weights_per_flip_label = self
@@ -130,7 +139,7 @@ where
                 section = ClusterWeights::default();
             }
 
-            cluster_slice = if let Some(cluster_slice) = self.get_next_slice(cluster, cluster_slice)
+            cluster_slice = if let Some(cluster_slice) = self.get_next_slice(cluster, context, cluster_slice)
             {
                 cluster_slice
             } else {
@@ -141,7 +150,7 @@ where
             };
             debug_assert_ne!(
                 cluster_slice.get_timeslice(),
-                &first_timeslice,
+                &timeslice,
                 "Cannot cycle back to start of cluster."
             );
         }
@@ -172,15 +181,16 @@ where
     {
         let (context, cluster) =
             self.get_context_and_cluster_from_index_at_slice(timeslice, starting_index, rng);
+        let cluster_weights = self.get_slices_and_cluster_weights(&context, &cluster);
+        let flip_labels = self
+            .get_flip_possibilities_for_cluster(&context, &cluster)
+            .into_iter()
+            .collect::<Vec<_>>();
+        let (label, allocations) =
+            get_term_allocation_for_weights(&flip_labels, &cluster_weights, rng);
 
         todo!()
     }
-
-    fn perform_cluster_update<R>(
-        &mut self,
-        cluster: Self::Cluster,
-        cluster_flip_label: Self::ClusterFlipLabel,
-    ) -> bool;
 }
 
 pub struct ClusterWeights<T, P = f64> {

@@ -1,3 +1,4 @@
+use crate::qmc::term_rotator_impl::ClusterDOF;
 use crate::traits::graph_traits::DOFTypeTrait;
 
 impl DOFTypeTrait for bool {
@@ -25,6 +26,19 @@ impl DOFTypeTrait for bool {
             .enumerate()
             .map(|(i, v)| (if v { 1 } else { 0 }) << i)
             .sum()
+    }
+}
+
+impl ClusterDOF for bool {
+    /// False means no flip, True means flip.
+    type ClusterLabel = bool;
+
+    fn new_value_for_cluster(&self, label: &Self::ClusterLabel) -> Self {
+        self ^ label
+    }
+
+    fn get_cluster_labels() -> impl IntoIterator<Item = Self::ClusterLabel> {
+        [false, true]
     }
 }
 
