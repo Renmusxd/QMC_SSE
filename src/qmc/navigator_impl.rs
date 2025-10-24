@@ -89,8 +89,26 @@ impl<DOF: DOFTypeTrait> GraphNode for DoublyLinkedNode<DOF> {
         &self.input_state
     }
 
+    fn get_input_state_mut(&mut self) -> &mut [Self::DOFType] {
+        self.input_state.as_mut_slice()
+    }
+
     fn get_output_state(&self) -> &[Self::DOFType] {
         &self.output_state
+    }
+
+    fn get_output_state_mut(&mut self) -> &[Self::DOFType] {
+        self.output_state.as_mut_slice()
+    }
+
+    fn iterate_over_indices_and_states(&self) -> impl IntoIterator<Item=(&Self::DOFIndex, &Self::DOFType, &Self::DOFType)> {
+        let states = self.input_state.iter().zip(self.output_state.iter());
+        self.represents_term.act_on_indices.iter().zip(states).map(|(a,(b,c))| (a,b,c))
+    }
+
+    fn iterate_over_indices_and_states_mut(&mut self) -> impl IntoIterator<Item=(&Self::DOFIndex, &mut Self::DOFType, &mut Self::DOFType)> {
+        let states = self.input_state.iter_mut().zip(self.output_state.iter_mut());
+        self.represents_term.act_on_indices.iter().zip(states).map(|(a,(b,c))| (a,b,c))
     }
 
     fn get_relative_variable_index(&self, index: &Self::DOFIndex) -> Option<usize> {

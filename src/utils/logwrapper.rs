@@ -1,5 +1,8 @@
 use num_traits::{Float, One, Zero};
-use std::ops::{Add, Mul};
+use std::{
+    iter::{Product, Sum},
+    ops::{Add, Mul},
+};
 
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
 pub struct LogWrapper<P> {
@@ -23,12 +26,46 @@ where
     }
 }
 
+impl<P> From<P> for LogWrapper<P>
+where
+    P: Float,
+{
+    fn from(p: P) -> Self {
+        Self::new(p)
+    }
+}
+
+impl<P> Sum for LogWrapper<P>
+where
+    P: Product + Float,
+{
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.reduce(|a, b| a + b).unwrap_or_else(Self::zero)
+    }
+}
+
 impl<P> One for LogWrapper<P>
 where
     P: Zero,
 {
     fn one() -> Self {
         Self { logit: P::zero() }
+    }
+}
+
+impl<P> Zero for LogWrapper<P>
+where
+    P: Float,
+{
+    fn zero() -> Self {
+        Self {
+            logit: P::neg_infinity(),
+        }
+    }
+
+    fn is_zero(&self) -> bool {
+        let l: &P = &self.logit;
+        l.is_infinite() && l.is_sign_negative()
     }
 }
 

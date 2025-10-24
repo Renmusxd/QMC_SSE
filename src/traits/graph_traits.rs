@@ -84,7 +84,16 @@ pub trait GraphNode {
 
     fn get_indices(&self) -> &[Self::DOFIndex];
     fn get_input_state(&self) -> &[Self::DOFType];
+    fn get_input_state_mut(&mut self) -> &mut [Self::DOFType];
     fn get_output_state(&self) -> &[Self::DOFType];
+    fn get_output_state_mut(&mut self) -> &[Self::DOFType];
+
+    fn iterate_over_indices_and_states(
+        &self,
+    ) -> impl IntoIterator<Item = (&Self::DOFIndex, &Self::DOFType, &Self::DOFType)>;
+    fn iterate_over_indices_and_states_mut(
+        &mut self,
+    ) -> impl IntoIterator<Item = (&Self::DOFIndex, &mut Self::DOFType, &mut Self::DOFType)>;
 
     fn get_relative_variable_index(&self, index: &Self::DOFIndex) -> Option<usize>;
     fn is_diagonal(&self) -> bool {
