@@ -20,7 +20,6 @@ fn main() {
 
     let thermalization_steps = 1024;
     for _ in 0..thermalization_steps {
-        qmc.maintain_maximum_filling_fraction(0.75, 16);
         qmc.diagonal_update(beta, &mut rng);
         for _ in 0..l {
             qmc.naive_flip_update(&mut rng);
@@ -32,7 +31,6 @@ fn main() {
     let autocorr_time = 4;
     for _ in 0..samples {
         for _ in 0..autocorr_time {
-            qmc.maintain_maximum_filling_fraction(0.75, 16);
             qmc.diagonal_update(beta, &mut rng);
             for _ in 0..l {
                 qmc.naive_flip_update(&mut rng);

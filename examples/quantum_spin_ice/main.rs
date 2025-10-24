@@ -27,7 +27,6 @@ fn main() {
     // Diagonal therm
     let diagonal_therm = 128;
     for _ in 0..diagonal_therm {
-        qmc.maintain_maximum_filling_fraction(0.75, 16);
         qmc.diagonal_update(beta, &mut rng);
     }
 

@@ -12,8 +12,8 @@ fn main() {
     let mut qmc = GenericQMC::<bool, _>::new(n);
 
     for i in 0..n {
-        qmc.add_term(TFIMTerm::X(gamma), vec![i]);
-        qmc.add_term(TFIMTerm::ZZ(bond_j), vec![i, (i + 1) % n]);
+        qmc.add_term(TFIMTerm::X(gamma), [i]);
+        qmc.add_term(TFIMTerm::ZZ(bond_j), [i, (i + 1) % n]);
     }
 
     let beta = 16.0;
@@ -21,7 +21,6 @@ fn main() {
 
     let thermalization_steps = 128;
     for _ in 0..thermalization_steps {
-        qmc.maintain_maximum_filling_fraction(0.5, 16);
         qmc.diagonal_update(beta, &mut rng);
     }
     qmc.print_worldlines();

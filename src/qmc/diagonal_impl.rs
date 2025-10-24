@@ -13,6 +13,10 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>, GC> DiagonalUpdate
         self.num_non_identity_terms
     }
 
+    fn diagonal_update_resize_hook(&mut self) {
+        self.maintain_maximum_filling_fraction(self.filling_fraction, self.min_space);
+    }
+
     fn construct_node(
         timeslice: &Self::TimesliceIndex,
         context: GraphContext<Self::DOFType, Link<Self::TimesliceIndex>>,

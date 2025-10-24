@@ -28,7 +28,52 @@ $$ \langle H_i \rangle = - \frac{1}{\beta} \langle n_i \rangle$$
 making those off-diagonal terms simple to estimate. Other off-diagonal observables are not trivial to estimate, (See Sec. 3.2 in the [review](https://arxiv.org/pdf/1909.10591)).
 
 # Library API
-TODO
+The library is divided into three important modules: `traits`, `qmc`, and `terms`.
+The `traits` module handles the logic associated with the various SSE algorithms at an abstract level.
+The `terms` module provides implementations of specific Hamiltonians.
+The `qmc` module provides an implementation of the various `traits`.
 
-# Examples
-TODO
+To construct a simulation, we build a new `qmc_sse::qmc::GenericQMC` with a given system size,
+```rust
+let system_size = 5;
+let mut qmc = GenericQMC::<bool, _>::new(system_size);
+```
+Here, we have specified that the system's degrees of freedom may be represented by `bool`s, which is appropriate for any system with local Hilbert space dimension 2.
+For larger local dimensions we may use `Spin<N>`, or any struct which implements `qmc_sse::traits::graph_traits::DOFTypeTrait`.
+
+We then add terms to the Hamiltonian one at a time, for a transverse field Ising model on a periodic change we `use use qmc_sse::terms::tfim::TFIMTerm` and run
+```rust
+let gamma = 1.0;
+let bond_j = 1.0;
+for i in 0..n {
+    qmc.add_term(TFIMTerm::X(gamma), [i]);
+    qmc.add_term(TFIMTerm::ZZ(bond_j), [i, (i + 1) % n]);
+}
+```
+The first argument allows the system to compute the matrix elements (here by specifying that $H_i$ is $\sigma_x$ or $\sigma_z \sigma_z$),
+the second argument specifies the indices the operator acts on.
+
+As detailed in Sec. 2.1 and 2.2, there are two distinct flavors of SSE monte carlo updates: diagonal and off-diagonal.
+To perform diagonal updates we `use qmc_sse::traits::diagonal_update::DiagonalUpdate`.
+We provide the diagonal update a prng (`rng`) and the inverse temperature of the simulation `beta`.
+
+```rust
+let beta = 16.0;
+let mut rng = SmallRng::seed_from_u64(12345);
+
+let thermalization_steps = 128;
+for _ in 0..thermalization_steps {
+    qmc.diagonal_update(beta, &mut rng);
+}
+```
+The diagonal update is available for all matrix terms.
+Off-diagonal updates are more picky and place requirements upon the terms you add to your Hamiltonian.
+The first is the naive flip update,
+```rust
+qmc.naive_flip_update(&mut rng);
+```
+which requires matrix terms to implement `MatrixTermFlippable<P>`. The trait system prevents code from compiling if the
+given Hamiltonian is incompatible with the chosen Monte Carlo update rule.
+
+# TODO:
+Readme about Cluster Updates

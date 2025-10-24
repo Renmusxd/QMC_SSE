@@ -25,7 +25,6 @@ fn main() {
 
     let thermalization_steps = 128;
     for _ in 0..thermalization_steps {
-        qmc.maintain_maximum_filling_fraction(0.5, 16);
         qmc.diagonal_update(beta, &mut rng);
         qmc.naive_flip_update(&mut rng);
     }

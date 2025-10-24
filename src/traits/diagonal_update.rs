@@ -16,6 +16,10 @@ where
     // Corresponds to n in Sandvik 2019 Eq (18)
     fn get_number_of_non_identity_operators(&self) -> usize;
 
+    // If the system needs to resize internal structure before the diagonal update, this
+    // is guaranteed to be called before anything else in `diagonal_update`.
+    fn diagonal_update_resize_hook(&mut self) {}
+
     fn construct_node(
         timeslice: &Self::TimesliceIndex,
         context: GraphContext<Self::DOFType, Link<Self::TimesliceIndex>>,
@@ -27,6 +31,7 @@ where
         R: Rng,
     {
         debug_assert!(self.check_graph_consistency());
+        self.diagonal_update_resize_hook();
 
         let mut incoming_state = self.get_initial_state().to_vec();
         let mut last_nodes = vec![None; self.get_num_dof()];

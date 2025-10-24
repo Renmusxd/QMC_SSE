@@ -34,6 +34,10 @@ pub struct GenericQMC<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GraphInf
     list_of_nodes_with_flippable_outputs: Vec<usize>,
 
     graph_information: GraphInformation,
+
+    // Filling fraction details
+    filling_fraction: f64,
+    min_space: usize
 }
 
 impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData> {
@@ -66,6 +70,8 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
             list_of_nodes_by_term: vec![],
             list_of_nodes_with_flippable_outputs: vec![],
             graph_information,
+            filling_fraction: 0.75,
+            min_space: 16,
         }
     }
 
@@ -96,7 +102,8 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
         debug_assert!(self.check_consistency());
     }
 
-    pub fn add_term(&mut self, data: TermData, act_on_indices: Vec<usize>) -> MatrixTermHandle {
+    pub fn add_term<Indices>(&mut self, data: TermData, act_on_indices: Indices) -> MatrixTermHandle where Indices: Into<Vec<usize>> {
+        let act_on_indices = act_on_indices.into();
         debug_assert_eq!(
             data.dim(),
             DOF::local_dimension().pow(act_on_indices.len() as u32)
