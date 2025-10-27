@@ -11,6 +11,7 @@ pub mod graph_mod_impl;
 pub mod naive_flip_impl;
 pub mod navigator_impl;
 pub mod weight_impl;
+mod thermal_update_impl;
 
 pub type MatrixTermHandle = usize;
 

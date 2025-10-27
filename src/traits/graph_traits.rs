@@ -1,5 +1,7 @@
 use std::cmp::Ordering;
 use std::fmt::Debug;
+use rand::distr::Uniform;
+use rand::Rng;
 
 pub trait GraphStateNavigator {
     type Node: GraphNode<DOFIndex = Self::DOFIndex, DOFType = Self::DOFType>;
@@ -146,6 +148,11 @@ pub trait DOFTypeTrait: Eq + PartialEq + Clone + Copy + Default + Debug {
             dof_index /= d;
         }
         output
+    }
+
+    fn get_random<R>(rng: &mut R) -> Self where R: Rng {
+        let choice =rng.sample(Uniform::new(0, Self::local_dimension()).unwrap());
+        Self::iterate_through_values().into_iter().take(choice + 1).last().unwrap()
     }
 }
 

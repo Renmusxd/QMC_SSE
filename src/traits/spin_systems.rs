@@ -1,3 +1,5 @@
+use rand::distr::Uniform;
+use rand::Rng;
 use crate::traits::graph_traits::DOFTypeTrait;
 
 impl DOFTypeTrait for bool {
@@ -25,6 +27,10 @@ impl DOFTypeTrait for bool {
             .enumerate()
             .map(|(i, v)| (if v { 1 } else { 0 }) << i)
             .sum()
+    }
+
+    fn get_random<R>(rng: &mut R) -> Self where R: Rng {
+        rng.random()
     }
 }
 
@@ -54,5 +60,12 @@ impl<const N: usize> DOFTypeTrait for Spin<N> {
 
     fn iterate_through_values() -> impl Iterator<Item = Self> {
         (0..N).map(Self::new)
+    }
+
+    fn get_random<R>(rng: &mut R) -> Self where R: Rng {
+        let choice = rng.sample(Uniform::new(0, N).unwrap());
+        Self {
+            value: choice
+        }
     }
 }

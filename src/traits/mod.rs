@@ -7,6 +7,7 @@ pub mod graph_traits;
 pub mod graph_weights;
 pub mod naive_flip_update;
 pub mod spin_systems;
+pub mod thermal_update;
 
 #[derive(Clone, Copy, Debug)]
 pub enum WeightChange {
