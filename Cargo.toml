@@ -2,6 +2,11 @@
 name = "qmc"
 version = "3.0.0-rc1"
 edition = "2024"
+authors = ["Sumner Hearth <sumnernh@gmail.com>"]
+description = "Quantum Monte Carlo simulations in Rust"
+documentation = "https://docs.rs/qmc/"
+repository = "https://github.com/Renmusxd/QMC_SSE"
+license = "MIT"
 
 [dependencies]
 rand = "0.9"
@@ -16,3 +21,6 @@ autocorrelations = ["rustfft"]
 
 [dev-dependencies]
 env_logger = "0.11"
+
+[profile.release]
+panic = "abort"

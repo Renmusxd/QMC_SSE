@@ -149,7 +149,7 @@ impl<T> TermClusterExpander<bool> for TFIMTerm<T> {
         output: &[bool],
         direction: DirectionEnum,
         relative_index: usize,
-        new_value: &bool,
+        _new_value: &bool,
         _: &mut R,
     ) -> impl NodeClusterExpansion<bool> + 'a
     where

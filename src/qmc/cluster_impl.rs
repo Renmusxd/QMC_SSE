@@ -7,7 +7,6 @@ use rand::Rng;
 use std::collections::HashMap;
 use num_traits::Zero;
 use rand::distr::Uniform;
-use log::debug;
 
 impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>, GC> ClusterUpdater for GenericQMC<DOF, Data, GC>
 where
@@ -489,8 +488,12 @@ mod cluster_tests {
     struct EyeEyePlusXXMatrixTerm;
 
     impl MatrixTermData<f64> for EyeEyePlusXXMatrixTerm {
-        fn get_matrix_entry(&self, _input: usize, _output: usize) -> f64 {
-            unimplemented!()
+        fn get_matrix_entry(&self, input: usize, output: usize) -> f64 {
+            match (input, output) {
+                (i, o) if i == o => 1.0,
+                (i, o) if i == !o & 0b11  => 1.0,
+                _ => 0.0
+            }
         }
         fn dim(&self) -> usize {
             4
@@ -527,10 +530,10 @@ mod cluster_tests {
             _n: usize,
         ) -> usize {
             match input {
-                0 => 3,
-                1 => 2,
-                2 => 1,
-                3 => 0,
+                0b00 => 0b11,
+                0b01 => 0b10,
+                0b10 => 0b01,
+                0b11 => 0b00,
                 _ => unreachable!(),
             }
         }
@@ -610,8 +613,13 @@ mod cluster_tests {
     struct EyeEyePlusZZMatrixTerm;
 
     impl MatrixTermData<f64> for EyeEyePlusZZMatrixTerm {
-        fn get_matrix_entry(&self, _input: usize, _output: usize) -> f64 {
-            unimplemented!()
+        fn get_matrix_entry(&self, input: usize, output: usize) -> f64 {
+            if input != output { return 0.0; }
+            match input {
+                0b00 | 0b11 => 2.0,
+                0b01 | 0b10 => 0.0,
+                _ => panic!("Should not be reachable.")
+            }
         }
         fn dim(&self) -> usize {
             4

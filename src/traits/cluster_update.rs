@@ -3,7 +3,6 @@ use crate::traits::graph_traits::{GraphNode, LinkedGraphNode, TimeSlicedGraph};
 use crate::traits::graph_weights::GraphWeight;
 use rand::Rng;
 use std::hash::Hash;
-use log::debug;
 
 pub trait ClusterUpdater: TimeSlicedGraph + GraphWeight
 where
