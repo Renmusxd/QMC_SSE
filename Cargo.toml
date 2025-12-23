@@ -6,7 +6,8 @@ authors = ["Sumner Hearth <sumnernh@gmail.com>"]
 description = "Quantum Monte Carlo simulations in Rust"
 documentation = "https://docs.rs/qmc/"
 repository = "https://github.com/Renmusxd/QMC_SSE"
-license = "MIT"
+license = "GPL-3"
+license-file = "LICENSE"
 
 [dependencies]
 rand = "0.9"
