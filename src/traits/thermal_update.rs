@@ -1,6 +1,8 @@
 use rand::Rng;
 use crate::traits::graph_traits::{DOFTypeTrait, GraphStateNavigator};
 
+/// Implement this trait to mark that a graph is capable of performing thermal update along
+/// worldlines with no nodes on them.
 pub trait ThermalUpdate: GraphStateNavigator {
     /// The thermal update randomizes degrees of freedom which do not have operators attached.
     /// This is common for small beta, but very uncommon for large beta.

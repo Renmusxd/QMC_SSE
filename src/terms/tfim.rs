@@ -8,9 +8,12 @@ use rand::Rng;
 use std::fmt::Debug;
 use std::ops::{Add, Neg};
 
+/// The collection of allowed terms in the Hamiltonian, ZZ or X, with associated strengths.
 #[derive(Debug, Clone, Copy)]
 pub enum TFIMTerm<T> {
+    /// A ZZ term is the standard ferromagnetic or antiferromagnetic Ising bond.
     ZZ(T),
+    /// A transverse field applied to a single site.
     X(T),
 }
 

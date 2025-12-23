@@ -4,6 +4,7 @@ use std::{
     ops::{Add, Mul},
 };
 
+/// Represents a float P in log space by internally storing log(P).
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
 pub struct LogWrapper<P> {
     logit: P,
@@ -13,14 +14,17 @@ impl<P> LogWrapper<P>
 where
     P: Float,
 {
+    /// Construct a new LogWrapper equal to `p`.
     pub fn new(p: P) -> Self {
         Self { logit: p.ln() }
     }
 
+    /// Retrieve the represented value.
     pub fn dissolve(self) -> P {
         self.logit.exp()
     }
 
+    /// Get ln(p) by exposing the raw underlying value.
     pub fn ln_raw(self) -> P {
         self.logit
     }

@@ -6,6 +6,8 @@ use rustfft::num_complex::Complex;
 use std::ops::DivAssign;
 
 impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>, GC> GenericQMC<DOF, Data, GC> {
+    /// Compute the autocorrelation function for each matrix term. Uses the `step` function to
+    /// run a single QMC step.
     pub fn autocorr_for_terms<F>(&mut self, beta: f64, n_steps: usize, mut step: F) -> Vec<f64>
     where
         F: FnMut(&mut Self),
@@ -21,7 +23,7 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>, GC> GenericQMC<DOF, Data, GC>
     }
 }
 
-pub(crate) fn fft_autocorrelation(samples: &[Vec<f64>]) -> Vec<f64> {
+fn fft_autocorrelation(samples: &[Vec<f64>]) -> Vec<f64> {
     let tmax = samples.len();
     let n = samples[0].len();
 

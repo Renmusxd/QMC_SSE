@@ -2,6 +2,8 @@ use crate::qmc::MatrixTermData;
 use crate::qmc::naive_flip_impl::MatrixTermFlippable;
 use num_traits::{One, Zero};
 
+/// A ring exchange term is offdiagonal between exactly two states.
+/// Represents a term like $$|a><b> + |b><a|$$.
 #[derive(Clone)]
 pub struct RingExchangeData<T>
 where
@@ -14,6 +16,7 @@ where
 }
 
 impl<T: Clone> RingExchangeData<T> {
+    /// Construct a new matrix term by giving an overall scale and the two flippable states.
     pub fn new(
         scale: T,
         exchangeable_state_a: usize,

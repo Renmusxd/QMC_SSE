@@ -41,12 +41,15 @@ impl DOFTypeTrait for bool {
     }
 }
 
+/// A degree of freedom with N levels.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Default)]
 pub struct Spin<const N: usize> {
     value: usize,
 }
 
 impl<const N: usize> Spin<N> {
+
+    /// Construct a new Spin in state `value` out of `N`.
     pub fn new(value: usize) -> Self {
         Self { value }
     }

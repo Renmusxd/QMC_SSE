@@ -115,6 +115,8 @@ where
     }
 }
 
+/// Implementing this trait marks a matrix term as being conducive to naive flip updates under the
+/// right conditions.
 pub trait MatrixTermFlippable<T> {
     /// Returns true if this term is allowed to be flipped offdiagonal by a change to either the
     /// input or the output. If both are required to change then the term is more suitable to
@@ -129,6 +131,9 @@ pub trait MatrixTermFlippable<T> {
         input_b: usize,
         output: usize,
     ) -> Option<(T, T)>;
+
+    /// For a given input, and a specified starting output, give the nth alternate output which
+    /// does not change the graph weight.
     fn get_nth_equal_weight_output_for_input_distinct_from_output(
         &self,
         input: usize,

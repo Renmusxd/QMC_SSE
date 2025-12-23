@@ -7,7 +7,6 @@ description = "Quantum Monte Carlo simulations in Rust"
 documentation = "https://docs.rs/qmc/"
 repository = "https://github.com/Renmusxd/QMC_SSE"
 license = "GPL-3"
-license-file = "LICENSE"
 
 [dependencies]
 rand = "0.9"
@@ -25,3 +24,6 @@ env_logger = "0.11"
 
 [profile.release]
 panic = "abort"
+
+[package.metadata.docs.rs]
+rustdoc-args = [ "--html-in-header", "./src/docs-header.html" ]
