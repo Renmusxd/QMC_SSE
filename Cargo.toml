@@ -1,6 +1,6 @@
 [package]
-name = "qmc_sse"
-version = "0.1.0"
+name = "qmc"
+version = "3.0.0-rc1"
 edition = "2024"
 
 [dependencies]

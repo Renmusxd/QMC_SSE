@@ -1,5 +1,5 @@
-use qmc_sse::terms::ring_exchange::RingExchangeData;
-use qmc_sse::traits::graph_traits::DOFTypeTrait;
+use qmc::terms::ring_exchange::RingExchangeData;
+use qmc::traits::graph_traits::DOFTypeTrait;
 use std::collections::{HashMap, HashSet};
 
 pub struct PyrochloreLatticeHelper {

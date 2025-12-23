@@ -1,9 +1,9 @@
 pub mod pyrochlore_helper;
 
 use crate::pyrochlore_helper::PyrochloreLatticeHelper;
-use qmc_sse::qmc::GenericQMC;
-use qmc_sse::traits::diagonal_update::DiagonalUpdate;
-use qmc_sse::traits::naive_flip_update::NaiveFlipUpdater;
+use qmc::qmc::GenericQMC;
+use qmc::traits::diagonal_update::DiagonalUpdate;
+use qmc::traits::naive_flip_update::NaiveFlipUpdater;
 use rand::SeedableRng;
 use rand::prelude::SmallRng;
 

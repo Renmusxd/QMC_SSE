@@ -1,9 +1,9 @@
 use rand::prelude::*;
 
-use qmc_sse::qmc::GenericQMC;
-use qmc_sse::terms::ring_exchange::RingExchangeData;
-use qmc_sse::traits::diagonal_update::DiagonalUpdate;
-use qmc_sse::traits::naive_flip_update::NaiveFlipUpdater;
+use qmc::qmc::GenericQMC;
+use qmc::terms::ring_exchange::RingExchangeData;
+use qmc::traits::diagonal_update::DiagonalUpdate;
+use qmc::traits::naive_flip_update::NaiveFlipUpdater;
 
 fn main() {
     let l = 3;

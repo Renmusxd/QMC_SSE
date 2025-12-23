@@ -1,10 +1,10 @@
 use rand::prelude::*;
 
-use qmc_sse::qmc::GenericQMC;
-use qmc_sse::terms::tfim::TFIMTerm;
-use qmc_sse::traits::cluster_update::ClusterUpdater;
-use qmc_sse::traits::diagonal_update::DiagonalUpdate;
-use qmc_sse::traits::thermal_update::ThermalUpdate;
+use qmc::qmc::GenericQMC;
+use qmc::terms::tfim::TFIMTerm;
+use qmc::traits::cluster_update::ClusterUpdater;
+use qmc::traits::diagonal_update::DiagonalUpdate;
+use qmc::traits::thermal_update::ThermalUpdate;
 
 
 
