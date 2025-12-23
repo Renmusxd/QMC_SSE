@@ -163,6 +163,10 @@ where
             _ => 0,
         }
     }
+
+    fn get_natural_offset(&self) -> T {
+        T::zero()
+    }
 }
 
 impl<T> MatrixTermFlippable<T> for GenericMatrixTermEnum<T>

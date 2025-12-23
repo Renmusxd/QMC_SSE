@@ -2,6 +2,7 @@ use crate::traits::graph_traits::{
     DOFTypeTrait, GraphNode, GraphStateNavigator, Link, TimeSlicedGraph,
 };
 use std::cmp::max;
+use crate::traits::graph_weights::GraphWeight;
 
 #[cfg(feature = "autocorrelations")]
 pub mod autocorr;
@@ -38,7 +39,10 @@ pub struct GenericQMC<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GraphInf
 
     // Filling fraction details
     filling_fraction: f64,
-    min_space: usize
+    min_space: usize,
+
+    // Total energy offset from terms.
+    total_offset: f64,
 }
 
 impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData> {
@@ -73,11 +77,12 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
             graph_information,
             filling_fraction: 0.75,
             min_space: 16,
+            total_offset: 0.0,
         }
     }
 
     pub fn get_energy(&self, beta: f64) -> f64 {
-        self.num_non_identity_terms as f64 / beta
+        self.num_non_identity_terms as f64 / (-beta) + self.total_offset
     }
 
     pub fn get_expectation_value_of_term(&self, beta: f64, term: &MatrixTermHandle) -> f64 {
@@ -120,6 +125,8 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
         );
 
         let matrix_data_entry = self.all_term_data.len();
+        self.total_offset += data.get_natural_offset();
+
         self.all_term_data.push(data);
         self.all_terms.push(MatrixTerm {
             act_on_indices,
@@ -425,6 +432,11 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
             assert_eq!(node.index_of_entry_into_flippable_list, Some(i));
         }
 
+        for node in self.time_slices.iter().filter_map(|x| x.as_ref()) {
+            let element = self.get_matrix_element_from_node(node);
+            assert!(element > 0.0);
+        }
+
         true
     }
 }
@@ -458,6 +470,9 @@ pub trait MatrixTermData<T> {
         let new_weight = self.get_matrix_entry(new_state, new_state);
         Some((old_weight, new_weight))
     }
+
+    /// If the term adds an offset for numerical stability, return the offset to "undo" the shift.
+    fn get_natural_offset(&self) -> T;
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]

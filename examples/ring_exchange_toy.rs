@@ -39,7 +39,7 @@ fn main() {
         energies.push(qmc.get_energy(beta));
     }
     let avg_energy = energies.iter().sum::<f64>() / (samples as f64);
-    let variance = energies.iter().map(|x| x.powi(2)).sum::<f64>() / (samples as f64);
+    let variance = energies.iter().map(|x| (x-avg_energy).powi(2)).sum::<f64>() / (samples as f64);
     println!(
         "Avg: {:.3} +/- {:.3}",
         avg_energy,

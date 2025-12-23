@@ -35,6 +35,17 @@ where
         }
     }
 
+    fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
+        &self,
+        _input: usize,
+        _output: usize,
+    ) -> usize {
+        match self {
+            TFIMTerm::ZZ(_) => 0,
+            TFIMTerm::X(_) => 1,
+        }
+    }
+
     fn get_weight_change_for_diagonal(&self, old_state: usize, new_state: usize) -> Option<(T, T)> {
         match self {
             TFIMTerm::X(_) => None,
@@ -63,14 +74,10 @@ where
         }
     }
 
-    fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
-        &self,
-        _input: usize,
-        _output: usize,
-    ) -> usize {
+    fn get_natural_offset(&self) -> T {
         match self {
-            TFIMTerm::ZZ(_) => 0,
-            TFIMTerm::X(_) => 1,
+            TFIMTerm::ZZ(jj) => jj.abs(),
+            TFIMTerm::X(gamma) => gamma.clone()
         }
     }
 }
@@ -138,8 +145,8 @@ where
 impl<T> TermClusterExpander<bool> for TFIMTerm<T> {
     fn output_changes_for_spin_flip<'a, R>(
         &self,
-        _: &[bool],
-        _: &[bool],
+        input: &[bool],
+        output: &[bool],
         direction: DirectionEnum,
         relative_index: usize,
         new_value: &bool,
@@ -151,18 +158,25 @@ impl<T> TermClusterExpander<bool> for TFIMTerm<T> {
         // Rather than return one of two vectors, just construct a small array and return the
         // first n={0, 3} objects.
         // The compiler may be able to optimize this since there are no heap interactions.
+        let (own_state, other_state) = match direction {
+            DirectionEnum::Input => (input, output),
+            DirectionEnum::Output => (output, input)
+        };
         let other_direction = direction.swap_direction();
-        let other_index = 1 - relative_index;
-        let ising_array = [
-            (direction, other_index, *new_value),
-            (other_direction, relative_index, *new_value),
-            (other_direction, other_index, *new_value),
-        ];
+
 
         let num_to_select = match self {
             TFIMTerm::ZZ(_) => 3,
             TFIMTerm::X(_) => 0,
         };
+
+        let other_index = if num_to_select == 3 { 1 - relative_index } else { 0 };
+
+        let ising_array = [
+            (direction, other_index, !own_state[other_index]),
+            (other_direction, relative_index, !other_state[relative_index]),
+            (other_direction, other_index, !other_state[other_index]),
+        ];
 
         ising_array.into_iter().take(num_to_select)
     }

@@ -7,8 +7,8 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>, GC> ThermalUpdate for Generic
     where
         F: Fn(&mut T, &mut Self::DOFType)
     {
-        self.initial_state.iter_mut().enumerate().filter(|(index, _)| {
-            self.first_nodes_for_dofs[*index].is_none()
+        self.first_nodes_for_dofs.iter().zip(self.initial_state.iter_mut()).filter(|(first_node, _)| {
+            first_node.is_none()
         }).for_each(|(_, value)| {
             f(&mut context, value)
         });

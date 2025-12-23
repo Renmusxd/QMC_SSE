@@ -2,9 +2,12 @@ use crate::qmc::{DoublyLinkedNode, GenericQMC, MatrixTermData};
 use crate::traits::cluster_update::{
     ClusterManager, ClusterUpdater, DirectionEnum, HasTimeslice, Leg, NodeClusterExpansion,
 };
-use crate::traits::graph_traits::{DOFTypeTrait, GraphNode};
+use crate::traits::graph_traits::{DOFTypeTrait, GraphNode, TimeSlicedGraph};
 use rand::Rng;
 use std::collections::HashMap;
+use num_traits::Zero;
+use rand::distr::Uniform;
+use log::debug;
 
 impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>, GC> ClusterUpdater for GenericQMC<DOF, Data, GC>
 where
@@ -16,6 +19,34 @@ where
         HashMap<usize, ManagerData<Self::DOFType>>,
     );
     type ClusterManager<'a> = GenericClusterManager<'a, Self::DOFType>;
+
+    fn cluster_update<R>(&mut self, rng: &mut R) -> Result<bool, String>
+    where
+        R: Rng
+    {
+        if self.num_non_identity_terms.is_zero() {
+            return Ok(true);
+        }
+
+        let choice = rng.sample(Uniform::new(0, self.num_non_identity_terms).unwrap());
+        let choice_timeslice = self.list_of_nodes_by_term.iter().try_fold(choice, |choice, node_list| {
+            if choice < node_list.len() {
+                Err(node_list[choice])
+            } else {
+                Ok(choice - node_list.len())
+            }
+        }).expect_err("Choice must always select a node.");
+
+        let direction = if rng.random::<bool>() { DirectionEnum::Input } else { DirectionEnum::Output };
+        let node = self.get_node(&choice_timeslice).expect("Choice timeslice must point to node");
+        let relative_index = rng.sample(Uniform::new(0, node.input_state.len()).unwrap());
+        let old_dof_value = match direction {
+            DirectionEnum::Input => &node.input_state[relative_index],
+            DirectionEnum::Output => &node.output_state[relative_index],
+        };
+        let new_dof_value = old_dof_value.get_distinct_random(rng);
+        self.cluster_update_starting_from_timeslice(&choice_timeslice, direction, relative_index, new_dof_value, rng)
+    }
 
     fn output_changes_for_spin_flip<R>(
         &self,
@@ -335,6 +366,10 @@ mod cluster_tests {
         ) -> usize {
             1
         }
+
+        fn get_natural_offset(&self) -> f64 {
+            0.0
+        }
     }
     impl MatrixTermFlippable<f64> for EyePlusXMatrixTerm {
         fn is_maybe_flippable(&self) -> bool {
@@ -468,6 +503,10 @@ mod cluster_tests {
         ) -> usize {
             1
         }
+
+        fn get_natural_offset(&self) -> f64 {
+            0.0
+        }
     }
     impl MatrixTermFlippable<f64> for EyeEyePlusXXMatrixTerm {
         fn is_maybe_flippable(&self) -> bool {
@@ -583,6 +622,10 @@ mod cluster_tests {
             _output: usize,
         ) -> usize {
             0
+        }
+
+        fn get_natural_offset(&self) -> f64 {
+            0.0
         }
     }
     impl MatrixTermFlippable<f64> for EyeEyePlusZZMatrixTerm {

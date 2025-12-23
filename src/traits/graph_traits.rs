@@ -154,6 +154,8 @@ pub trait DOFTypeTrait: Eq + PartialEq + Clone + Copy + Default + Debug {
         let choice =rng.sample(Uniform::new(0, Self::local_dimension()).unwrap());
         Self::iterate_through_values().into_iter().take(choice + 1).last().unwrap()
     }
+
+    fn get_distinct_random<R>(&self, rng: &mut R) -> Self where R: Rng;
 }
 
 pub struct GraphContext<A, B> {

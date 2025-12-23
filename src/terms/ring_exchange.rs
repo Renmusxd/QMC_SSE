@@ -102,4 +102,8 @@ where
             0
         }
     }
+
+    fn get_natural_offset(&self) -> T {
+        self.scale.clone()
+    }
 }

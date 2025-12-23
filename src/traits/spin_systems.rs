@@ -32,6 +32,13 @@ impl DOFTypeTrait for bool {
     fn get_random<R>(rng: &mut R) -> Self where R: Rng {
         rng.random()
     }
+
+    fn get_distinct_random<R>(&self, _rng: &mut R) -> Self
+    where
+        R: Rng
+    {
+        !*self
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Default)]
@@ -64,6 +71,21 @@ impl<const N: usize> DOFTypeTrait for Spin<N> {
 
     fn get_random<R>(rng: &mut R) -> Self where R: Rng {
         let choice = rng.sample(Uniform::new(0, N).unwrap());
+        Self {
+            value: choice
+        }
+    }
+
+    fn get_distinct_random<R>(&self, rng: &mut R) -> Self
+    where
+        R: Rng
+    {
+        let choice = if N == 2 {
+            1 - self.value
+        } else {
+            let choice = rng.sample(Uniform::new(0, N - 1).unwrap());
+            (self.value + choice) % N
+        };
         Self {
             value: choice
         }

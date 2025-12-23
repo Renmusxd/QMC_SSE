@@ -3,6 +3,7 @@ use crate::traits::graph_traits::{GraphNode, LinkedGraphNode, TimeSlicedGraph};
 use crate::traits::graph_weights::GraphWeight;
 use rand::Rng;
 use std::hash::Hash;
+use log::debug;
 
 pub trait ClusterUpdater: TimeSlicedGraph + GraphWeight
 where
@@ -18,6 +19,8 @@ where
             Self::DOFIndex,
             ChangeRecord = Self::ChangeRecord,
         >;
+
+    fn cluster_update<R>(&mut self, rng: &mut R) -> Result<bool, String> where R: Rng;
 
     fn cluster_update_starting_from_timeslice<R>(
         &mut self,
@@ -108,10 +111,23 @@ where
             WeightChange::Factor(x) => rng.random::<f64>() < x,
         };
 
+        #[cfg(debug_assertions)]
+        let before_total_weight = self.get_total_graph_weight_from_nodes();
         if make_changes {
             let change_record = cluster.produce_change_record();
             self.apply_cluster_changes(change_record);
+
+            #[cfg(debug_assertions)]
+            let after_total_weight = self.get_total_graph_weight_from_nodes();
+            #[cfg(debug_assertions)]
+            debug_assert!(((after_total_weight / before_total_weight) - weight_change.get_weight().unwrap_or(0.0)).abs() < 1e-6);
+        } else {
+            #[cfg(debug_assertions)]
+            let after_total_weight = self.get_total_graph_weight_from_nodes();
+            #[cfg(debug_assertions)]
+            debug_assert!((before_total_weight - after_total_weight).abs() < 1e-6);
         }
+
         Ok(make_changes)
     }
 
