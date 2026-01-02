@@ -3,12 +3,18 @@ use crate::traits::graph_weights::GraphWeight;
 use rand::Rng;
 use std::cmp::Ordering;
 
+/// The naive flip updater can make offdiagonal moves between matching pairs
+/// of operators.
 pub trait NaiveFlipUpdater: TimeSlicedGraph + GraphWeight
 where
     Self::Node: LinkedGraphNode,
 {
+    /// To choose a random region to flip, it must know the total number of potentially
+    /// flippable regions.
     fn num_potential_flip_boundaries(&self) -> usize;
+    /// Of the potentially flippable regions, return the timeslice of the nth.
     fn get_potential_flip_boundary(&self, n: usize) -> Self::TimesliceIndex;
+    /// Return true if the node is potentially flippable.
     fn is_node_potentially_flippable(&self, node: &Self::Node) -> bool;
 
     /// Get the number of possible outputs (for fixed input) which are distinct from the current.
@@ -21,6 +27,8 @@ where
         n: usize,
     ) -> Vec<Self::DOFType>;
 
+    /// If the legs leading into the input of the node are flipping, can this node end the
+    /// cluster and "absorb" the flip.
     fn can_node_absorb_flip_from_top(
         &self,
         node: &Self::Node,
@@ -37,6 +45,7 @@ where
         new_state: &[Self::DOFType],
     ) -> Option<f64>;
 
+    /// Modify the states of the node at the timeslice using the function `f`.
     fn modify_node_at_timeslice_input_and_output<F>(
         &mut self,
         timeslice: &Self::TimesliceIndex,
@@ -45,6 +54,8 @@ where
     where
         F: Fn(&mut [Self::DOFType], &mut [Self::DOFType]);
 
+    /// The naive flip update identifies a flippable region and modifies the inputs and outputs
+    /// of nodes to offdiagonal nodes.
     fn naive_flip_update<R>(&mut self, mut rng: R)
     where
         R: Rng,
@@ -65,6 +76,7 @@ where
         self.naive_flip_update_starting_from_timeslice(start_pos, rng)
     }
 
+    /// Attempt the flip update on the output of the node at timeslice `start_pos`.
     fn naive_flip_update_starting_from_timeslice<R>(
         &mut self,
         start_pos: Self::TimesliceIndex,

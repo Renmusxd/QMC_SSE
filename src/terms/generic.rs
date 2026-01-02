@@ -2,25 +2,41 @@ use crate::qmc::MatrixTermData;
 use crate::qmc::naive_flip_impl::MatrixTermFlippable;
 use num_traits::{One, Zero};
 
+/// A general term in a Hamiltonian, makes few assumptions and thus offers few speedups.
 pub enum GenericMatrixTermEnum<T> {
+    /// An identity operator acting on a Hilbert space of size `dim`.
     Identity {
+        /// The dimension of the Hilbert sub-space
         dim: usize,
     },
+    /// A diagonal operator.
     Diagonal {
+        /// The diagonal of the operator, each entry in the data vector is a matrix element.
         data: Vec<T>,
     },
+    /// A uniform operator, meaning all matrix entries are identical.
     Uniform {
+        /// The value of the matrix entries.
         data: T,
+        /// The dimension of the Hilbert sub-space
         dim: usize,
     },
+    /// An operator which can be expressed as a scale times a binary operator (only 0 and 1).
     UniformSparse {
+        /// The scale of the operator
         data: T,
+        /// The dimension of the Hilbert sub-space
         dim: usize,
+        /// The various values of |b> for a given <a|.
         outputs_for_input: Vec<Vec<usize>>,
+        /// The various values of <a| for a given |b>.
         inputs_for_output: Vec<Vec<usize>>,
     },
+    /// An operator represented as a matrix.
     Generic {
+        /// Matrix entries in row-major form.
         data: Vec<T>,
+        /// The dimension of the Hilbert sub-space.
         dim: usize,
     },
 }
@@ -29,17 +45,23 @@ impl<T> GenericMatrixTermEnum<T>
 where
     T: One + Zero + Clone,
 {
-    pub fn make_diagonal(data: Vec<T>) -> Self {
-        Self::Diagonal { data }
+    /// Make a diagonal operator given the diagonal `data`.
+    pub fn make_diagonal<VT>(data: VT) -> Self where VT: Into<Vec<T>> {
+        Self::Diagonal { data: data.into() }
     }
 
+    /// Make an identity operator acting on a Hilbert sub-space of dimension `dim`.
     pub fn make_identity(dim: usize) -> Self {
         Self::Identity { dim }
     }
+
+    /// Make a uniform operator with all entries given by `data`.
     pub fn make_uniform(data: T, dim: usize) -> Self {
         Self::Uniform { data, dim }
     }
 
+    /// Make an operator with only 0 and `data` entries from a list of tuples:
+    /// (input, output): |output><input|
     pub fn make_sparse_uniform(data: T, dim: usize, matrix_entries: Vec<(usize, usize)>) -> Self {
         let mut inputs = matrix_entries
             .iter()

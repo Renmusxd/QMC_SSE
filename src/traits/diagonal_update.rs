@@ -5,27 +5,30 @@ use crate::traits::graph_weights::{GraphWeight, MatrixTermTrait};
 use log::debug;
 use rand::Rng;
 
+/// A diagonal update which may insert or remove nodes.
 pub trait DiagonalUpdate: TimeSlicedGraph + GraphWeight
 where
     Self::Node: LinkedGraphNode,
 {
-    // Corresponds to M in Sandvik 2019 Eq (18)
-    // https://arxiv.org/pdf/1909.10591
+    /// Corresponds to M in Sandvik 2019 Eq (18)
+    /// https://arxiv.org/pdf/1909.10591
     fn get_number_of_time_slices(&self) -> usize;
 
-    // Corresponds to n in Sandvik 2019 Eq (18)
+    /// Corresponds to n in Sandvik 2019 Eq (18)
     fn get_number_of_non_identity_operators(&self) -> usize;
 
-    // If the system needs to resize internal structure before the diagonal update, this
-    // is guaranteed to be called before anything else in `diagonal_update`.
+    /// If the system needs to resize internal structure before the diagonal update, this
+    /// is guaranteed to be called before anything else in `diagonal_update`.
     fn diagonal_update_resize_hook(&mut self) {}
 
+    /// Construct a node using the graph context, previous nodes and legs.
     fn construct_node(
         timeslice: &Self::TimesliceIndex,
         context: GraphContext<Self::DOFType, Link<Self::TimesliceIndex>>,
         term: Self::MatrixTerm,
     ) -> Self::Node;
 
+    /// Perform a diagonal update along all timeslices at a given inverse temperature.
     fn diagonal_update<R>(&mut self, beta: f64, mut rng: R)
     where
         R: Rng,

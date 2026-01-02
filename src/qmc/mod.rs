@@ -1,21 +1,32 @@
 use crate::traits::graph_traits::{
     DOFTypeTrait, GraphNode, GraphStateNavigator, Link, TimeSlicedGraph,
 };
-use std::cmp::max;
 use crate::traits::graph_weights::GraphWeight;
 
+/// Autocorrelation calculations using the fast fourier transform.
 #[cfg(feature = "autocorrelations")]
 pub mod autocorr;
+/// Generalized cluster algorithms, including the loop update.
 pub mod cluster_impl;
+/// Standard diagonal update.
 pub mod diagonal_impl;
+/// Functions for manipulating the worldline graph.
 pub mod graph_mod_impl;
+/// The simple offdiagonal update which flips DOFs between pairs of operators.
 pub mod naive_flip_impl;
+/// Graph navigation.
 pub mod navigator_impl;
+/// Functions of adding weights to the graph nodes.
 pub mod weight_impl;
-mod thermal_update_impl;
+/// Simple updates for empty worldlines at high temperatures.
+pub mod thermal_update_impl;
 
+/// Matrix terms are addressed using the MatrixTermHandle type.
 pub type MatrixTermHandle = usize;
 
+/// The GenericQMC implementation works with local degrees of freedom `DOF`. Operators on those DOFs are
+/// represented by `TermData`, which stores matrix terms and defines the allowed update rules.
+/// `GraphInformation` gives extra information about the connectivity of the graph when needed (currently unused).
 pub struct GenericQMC<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GraphInformation = ()> {
     initial_state: Vec<DOF>,
     indices: Vec<usize>,
@@ -46,21 +57,25 @@ pub struct GenericQMC<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GraphInf
 }
 
 impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>> GenericQMC<DOF, TermData> {
+    /// Construct a new QMC instance acting on `num_dof` sites.
     pub fn new(num_dofs: usize) -> Self {
         Self::new_with_context(num_dofs, ())
     }
 
+    /// Construct a new QMC instance with an `initial_state`.
     pub fn new_with_state(initial_state: Vec<DOF>) -> Self {
         Self::new_with_state_and_context(initial_state, ())
     }
 }
 
 impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermData, GI> {
+    /// Construct a new QMC instance acting on `num_dof` sites and additional graph information (unused).
     pub fn new_with_context(num_dofs: usize, graph_information: GI) -> Self {
         let state = (0..num_dofs).map(|_| DOF::default()).collect();
         Self::new_with_state_and_context(state, graph_information)
     }
 
+    /// Construct a new QMC instance with an `initial_state` and additional graph information (unused).
     pub fn new_with_state_and_context(initial_state: Vec<DOF>, graph_information: GI) -> Self {
         let n = initial_state.len();
         Self {
@@ -81,33 +96,43 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
         }
     }
 
+    /// Sample the graph energy given inverse temperature `beta`.
     pub fn get_energy(&self, beta: f64) -> f64 {
         self.num_non_identity_terms as f64 / (-beta) + self.total_offset
     }
 
+    /// Sample the expectatation value of the operator represented by `term` for fixed inverse temperature `beta`.
     pub fn get_expectation_value_of_term(&self, beta: f64, term: &MatrixTermHandle) -> f64 {
         let n = self.get_count_for_term(term);
         n as f64 / beta
     }
 
+    /// Sample the expectatation value of each operator for fixed inverse temperature `beta`.
+    /// The sum of these values is given by `get_energy(beta)`.
     pub fn get_each_expectation_value(&self, beta: f64) -> Vec<f64> {
         (0..self.all_terms.len())
             .map(|i| self.get_expectation_value_of_term(beta, &i))
             .collect()
     }
 
+    /// Set the minimum number of internal timeslices, this has no effect on the physics and is only for optimization purposes.
     pub fn set_minimum_timeslices(&mut self, m: usize) {
         if self.num_time_slices() < m {
             self.time_slices.resize_with(m, || None);
         }
     }
 
+    /// Resize the number of internal timeslices such that the fraction of non-identity operators is no greater than `frac`. 
+    /// Recommended to call between diagonal updates with frac~0.75. 
+    /// Will automatically resize to no less than `min_val`.
     pub fn maintain_maximum_filling_fraction(&mut self, frac: f64, min_val: usize) {
         let size_to_meet_quota = ((self.num_non_identity_terms as f64) / frac).ceil() as usize;
-        self.set_minimum_timeslices(max(size_to_meet_quota, min_val));
+        self.set_minimum_timeslices(size_to_meet_quota.max(min_val));
         debug_assert!(self.check_consistency());
     }
 
+    /// Adds a term to the Hamiltonian represented by `data`. The term acts on `act_on_indices`.
+    /// Returns a handle to the term.
     pub fn add_term<Indices>(&mut self, data: TermData, act_on_indices: Indices) -> MatrixTermHandle where Indices: Into<Vec<usize>> {
         let act_on_indices = act_on_indices.into();
         debug_assert_eq!(
@@ -139,6 +164,7 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
         matrix_data_entry
     }
 
+    /// Adds a diagonal node to the graph at `timeslice` representing the matrix term pointed to by `matrix_term_handle`.
     pub fn add_node(&mut self, timeslice: usize, matrix_term_handle: MatrixTermHandle) {
         let act_on_indices = self.all_terms[matrix_term_handle].act_on_indices.clone();
         self.insert_node(&timeslice, &act_on_indices, |context| DoublyLinkedNode {
@@ -157,6 +183,7 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
         });
     }
 
+    /// Remove a node from the list of potentially flippable nodes.
     fn remove_from_flippable_list(&mut self, node: &DoublyLinkedNode<DOF>) {
         if let Some(index_to_remove) = node.index_of_entry_into_flippable_list {
             Self::handle_flippable_removal(
@@ -167,6 +194,7 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
         }
     }
 
+    /// Perform bookkeeping surrounding a node removal, called by `remove_from_flippable_list`.
     fn handle_flippable_removal(
         index_to_remove: usize,
         flippable_list: &mut Vec<usize>,
@@ -193,10 +221,12 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
         }
     }
 
+    /// Returns the number of nodes which represent `term`.
     pub fn get_count_for_term(&self, term: &MatrixTermHandle) -> usize {
         self.list_of_nodes_by_term[*term].len()
     }
 
+    /// Starting at `starting_node_excluded`, step backwards through the worldline on relative index `rel_index` until `filter` returns true.
     pub fn iterate_backwards_through_nodes_until_match<'a, F>(
         &'a self,
         starting_node_excluded: &'a DoublyLinkedNode<DOF>,
@@ -220,6 +250,7 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
         )
     }
 
+    /// Starting at `starting_node_excluded`, step forwards through the worldline on relative index `rel_index` until `filter` returns true.
     pub fn iterate_forwards_through_nodes_until_match<'a, F>(
         &'a self,
         starting_node_excluded: &'a DoublyLinkedNode<DOF>,
@@ -243,6 +274,8 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
         )
     }
 
+    /// Starting at `starting_node_excluded`, step through nodes until `filter` returns true. Stepping behavior is defined by the
+    /// `successor` function.
     pub fn iterate_through_nodes_until_match<'a, F, G>(
         &'a self,
         starting_node_excluded: &'a DoublyLinkedNode<DOF>,
@@ -270,6 +303,7 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
         None
     }
 
+    /// For debugging purposes, print out the worldlines and operators.
     pub fn print_worldlines(&self) {
         let mut worldline = vec!["|"; self.initial_state.len()];
         for (t, slice) in self.time_slices.iter().enumerate() {
@@ -291,6 +325,7 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
         }
     }
 
+    /// For debugging purposes, throw an error if an obvious inconsistency exists on `node` at `timeslice`.
     pub fn check_node_consistency(&self, timeslice: usize, node: &DoublyLinkedNode<DOF>) -> bool {
         // First check the links for each dof.
         for (rel_index, global_index) in node
@@ -395,6 +430,7 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
         true
     }
 
+    /// For debugging purposes, throw an error if an obvious inconsistency exists on any node in the graph.
     pub fn check_consistency(&self) -> bool {
         // Check count of nodes.
         let mut num_nodes = 0;
@@ -441,6 +477,7 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
     }
 }
 
+/// A node in the QMC graph which points to all previous and following nodes which share a worldline.
 pub struct DoublyLinkedNode<DOF: DOFTypeTrait> {
     input_state: Vec<DOF>,
     output_state: Vec<DOF>,
@@ -454,9 +491,13 @@ pub struct DoublyLinkedNode<DOF: DOFTypeTrait> {
     index_of_entry_into_flippable_list: Option<usize>,
 }
 
+/// A term in the Hamiltonian must implement `MatrixTermData` with weights of type `T`. 
 pub trait MatrixTermData<T> {
+    /// Return the matrix entry connecting an `input` to an `output`, or the coefficient in front of |output><input|.
     fn get_matrix_entry(&self, input: usize, output: usize) -> T;
+    /// The dimension of the input/output space.
     fn dim(&self) -> usize;
+    /// For a fixed `input`, how distinct outputs, other than `output` have the same weight as `get_matrix_entry(input, output)`.
     fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
         &self,
         input: usize,
@@ -475,6 +516,7 @@ pub trait MatrixTermData<T> {
     fn get_natural_offset(&self) -> T;
 }
 
+/// The type of `GraphWeight::MatrixTermTrait` used for GenericQMC.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct MatrixTerm {
     act_on_indices: Vec<usize>,

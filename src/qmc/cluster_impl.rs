@@ -100,6 +100,8 @@ where
     }
 }
 
+/// A bookkeeper for the cluster. Keeps track of which legs remain to be resolved as well as
+/// changes to the initial state.
 #[derive(Default)]
 pub struct GenericClusterManager<'a, T>
 where
@@ -111,6 +113,7 @@ where
     timeslice_to_data: HashMap<usize, ManagerData<T>>,
 }
 
+/// Tracks changes to the input/output changes for individual terms.
 #[derive(Default, Clone)]
 pub struct ManagerData<T> {
     input: Vec<T>,
@@ -155,7 +158,7 @@ where
     fn push_cluster_leg(&mut self, leg: Leg<&'a DoublyLinkedNode<T>>, value: T) -> &T {
         let timeslice = *leg.get_node().get_timeslice();
         let direction = leg.get_direction();
-        let relative_index = leg.get_relative_index();
+        let relative_index = *leg.get_relative_index();
         let key = (timeslice, direction, relative_index);
 
         // First check if there's a leg already there.
@@ -192,7 +195,7 @@ where
             let value = self
                 .timeslice_to_data
                 .get(leg.get_node().get_timeslice())
-                .map(|data| data.get(leg.get_direction(), leg.get_relative_index()))
+                .map(|data| data.get(leg.get_direction(), *leg.get_relative_index()))
                 .expect("Leg cannot exist which points to empty data");
             (leg, value)
         })
@@ -201,7 +204,7 @@ where
     fn set_leg_value(&mut self, leg: &Leg<&'a DoublyLinkedNode<T>>, value: T) -> &T {
         let timeslice = *leg.get_node().get_timeslice();
         let direction = leg.get_direction();
-        let relative_index = leg.get_relative_index();
+        let relative_index = *leg.get_relative_index();
         let entry = self
             .timeslice_to_data
             .entry(timeslice)
@@ -215,7 +218,7 @@ where
     fn get_leg_value(&self, leg: &Leg<&'a DoublyLinkedNode<T>>) -> Option<&T> {
         let timeslice = *leg.get_node().get_timeslice();
         let direction = leg.get_direction();
-        let relative_index = leg.get_relative_index();
+        let relative_index = *leg.get_relative_index();
         self.timeslice_to_data
             .get(&timeslice)
             .map(|data| data.get(direction, relative_index))
@@ -242,7 +245,7 @@ where
     ) -> Option<(Leg<&'a DoublyLinkedNode<T>>, T)> {
         let timeslice = *leg.get_node().get_timeslice();
         let direction = leg.get_direction();
-        let relative_index = leg.get_relative_index();
+        let relative_index = *leg.get_relative_index();
         let key = (timeslice, direction, relative_index);
 
         // Check if we are going to hit a leg
@@ -284,7 +287,7 @@ where
         let leg_to_remove = &self.cluster_legs[leg_index];
         let timeslice_for_leg_to_remove = *leg_to_remove.get_node().get_timeslice();
         let direction_for_leg_to_remove = leg_to_remove.get_direction();
-        let relative_index_for_leg_to_remove = leg_to_remove.get_relative_index();
+        let relative_index_for_leg_to_remove = *leg_to_remove.get_relative_index();
         let key_to_remove = (
             timeslice_for_leg_to_remove,
             direction_for_leg_to_remove,
@@ -304,7 +307,7 @@ where
                 .expect("There must be a leg at the end");
             let timeslice = *last_leg.get_node().get_timeslice();
             let direction = last_leg.get_direction();
-            let relative_index = last_leg.get_relative_index();
+            let relative_index = *last_leg.get_relative_index();
             let key = (timeslice, direction, relative_index);
 
             self.cluster_legs.swap(leg_index, last_index);
@@ -321,7 +324,10 @@ where
     }
 }
 
+/// To support cluster updates, the `TermData` must implement `TermClusterExpander` on the appropriate `DOF`.
 pub trait TermClusterExpander<DOF> {
+    /// Given an `input_state` and `output_state`, if a cluster leg attempts to change a DOF, output the resulting cluster expansion
+    /// (such as which legs must change to accomodate).
     fn output_changes_for_spin_flip<'a, R>(
         &self,
         input_state: &[DOF],

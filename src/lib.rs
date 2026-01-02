@@ -54,19 +54,34 @@
 //!
 //!  To construct a simulation, we build a new `qmc_sse::qmc::GenericQMC` with a given system size,
 //!  ```rust
-//!  let system_size = 5;
-//!  let mut qmc = GenericQMC::<bool, _>::new(system_size);
+//! use qmc::qmc::*;
+//! # use qmc::terms::tfim::TFIMTerm;
+//!
+//! let system_size = 5;
+//! let mut qmc = GenericQMC::<bool, _>::new(system_size);
+//! # let gamma = 1.0;
+//! # let bond_j = 1.0;
+//! # for i in 0..system_size {
+//! #     qmc.add_term(TFIMTerm::X(gamma), [i]);
+//! #     qmc.add_term(TFIMTerm::ZZ(bond_j), [i, (i + 1) % system_size]);
+//! # }
 //!  ```
 //!  Here, we have specified that the system's degrees of freedom may be represented by `bool`s, which is appropriate for any system with local Hilbert space dimension 2.
 //!  For larger local dimensions we may use `Spin<N>`, or any struct which implements `qmc_sse::traits::graph_traits::DOFTypeTrait`.
 //!
 //!  We then add terms to the Hamiltonian one at a time, for a transverse field Ising model on a periodic change we `use use qmc_sse::terms::tfim::TFIMTerm` and run
 //!  ```rust
+//!  # use qmc::qmc::*;
+//!  use qmc::terms::tfim::TFIMTerm;
+//!
+//!  # let system_size = 5;
+//!  # let mut qmc = GenericQMC::<bool, _>::new(system_size);
+//!
 //!  let gamma = 1.0;
 //!  let bond_j = 1.0;
-//!  for i in 0..n {
+//!  for i in 0..system_size {
 //!      qmc.add_term(TFIMTerm::X(gamma), [i]);
-//!      qmc.add_term(TFIMTerm::ZZ(bond_j), [i, (i + 1) % n]);
+//!      qmc.add_term(TFIMTerm::ZZ(bond_j), [i, (i + 1) % system_size]);
 //!  }
 //!  ```
 //!  The first argument allows the system to compute the matrix elements (here by specifying that $H_i$ is $\sigma_x$ or $\sigma_z \sigma_z$),
@@ -77,6 +92,20 @@
 //!  We provide the diagonal update a prng (`rng`) and the inverse temperature of the simulation `beta`.
 //!
 //!  ```rust
+//!  # use qmc::qmc::*;
+//!  # use qmc::terms::tfim::TFIMTerm;
+//! use qmc::traits::diagonal_update::DiagonalUpdate;
+//!  use rand::{SeedableRng, prelude::SmallRng};
+//!
+//!  # let system_size = 5;
+//!  # let mut qmc = GenericQMC::<bool, _>::new(system_size);
+//!
+//!  # let gamma = 1.0;
+//!  # let bond_j = 1.0;
+//!  # for i in 0..system_size {
+//!  #    qmc.add_term(TFIMTerm::X(gamma), [i]);
+//!  #    qmc.add_term(TFIMTerm::ZZ(bond_j), [i, (i + 1) % system_size]);
+//!  # }
 //!  let beta = 16.0;
 //!  let mut rng = SmallRng::seed_from_u64(12345);
 //!
@@ -89,6 +118,28 @@
 //!  Off-diagonal updates are more picky and place requirements upon the terms you add to your Hamiltonian.
 //!  The first is the naive flip update,
 //!  ```rust
+//!  # use qmc::qmc::*;
+//!  # use qmc::terms::tfim::TFIMTerm;
+//!  # use qmc::traits::diagonal_update::DiagonalUpdate;
+//!  use qmc::traits::naive_flip_update::NaiveFlipUpdater;
+//!  # use rand::{SeedableRng, prelude::SmallRng};
+//!
+//!  # let system_size = 5;
+//!  # let mut qmc = GenericQMC::<bool, _>::new(system_size);
+//!
+//!  # let gamma = 1.0;
+//!  # let bond_j = 1.0;
+//!  # for i in 0..system_size {
+//!  #    qmc.add_term(TFIMTerm::X(gamma), [i]);
+//!  #    qmc.add_term(TFIMTerm::ZZ(bond_j), [i, (i + 1) % system_size]);
+//!  # }
+//!  # let beta = 16.0;
+//!  # let mut rng = SmallRng::seed_from_u64(12345);
+//!
+//!  # let thermalization_steps = 128;
+//!  # for _ in 0..thermalization_steps {
+//!  #     qmc.diagonal_update(beta, &mut rng);
+//!  # }
 //!  qmc.naive_flip_update(&mut rng);
 //!  ```
 //!  which requires matrix terms to implement `MatrixTermFlippable<P>`. The trait system prevents code from compiling if the
