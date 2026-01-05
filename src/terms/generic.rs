@@ -8,11 +8,15 @@ pub enum GenericMatrixTermEnum<T> {
     Identity {
         /// The dimension of the Hilbert sub-space
         dim: usize,
+        /// The number of dofs acted on.
+        num_dof: usize
     },
     /// A diagonal operator.
     Diagonal {
         /// The diagonal of the operator, each entry in the data vector is a matrix element.
         data: Vec<T>,
+        /// The number of dofs acted on.
+        num_dof: usize
     },
     /// A uniform operator, meaning all matrix entries are identical.
     Uniform {
@@ -20,6 +24,8 @@ pub enum GenericMatrixTermEnum<T> {
         data: T,
         /// The dimension of the Hilbert sub-space
         dim: usize,
+        /// The number of dofs acted on.
+        num_dof: usize
     },
     /// An operator which can be expressed as a scale times a binary operator (only 0 and 1).
     UniformSparse {
@@ -31,6 +37,8 @@ pub enum GenericMatrixTermEnum<T> {
         outputs_for_input: Vec<Vec<usize>>,
         /// The various values of <a| for a given |b>.
         inputs_for_output: Vec<Vec<usize>>,
+        /// The number of dofs acted on.
+        num_dof: usize
     },
     /// An operator represented as a matrix.
     Generic {
@@ -38,6 +46,8 @@ pub enum GenericMatrixTermEnum<T> {
         data: Vec<T>,
         /// The dimension of the Hilbert sub-space.
         dim: usize,
+        /// The number of dofs acted on.
+        num_dof: usize
     },
 }
 
@@ -46,23 +56,23 @@ where
     T: One + Zero + Clone,
 {
     /// Make a diagonal operator given the diagonal `data`.
-    pub fn make_diagonal<VT>(data: VT) -> Self where VT: Into<Vec<T>> {
-        Self::Diagonal { data: data.into() }
+    pub fn make_diagonal<VT>(data: VT, num_dof: usize) -> Self where VT: Into<Vec<T>> {
+        Self::Diagonal { data: data.into(), num_dof }
     }
 
     /// Make an identity operator acting on a Hilbert sub-space of dimension `dim`.
-    pub fn make_identity(dim: usize) -> Self {
-        Self::Identity { dim }
+    pub fn make_identity(dim: usize, num_dof: usize) -> Self {
+        Self::Identity { dim, num_dof }
     }
 
     /// Make a uniform operator with all entries given by `data`.
-    pub fn make_uniform(data: T, dim: usize) -> Self {
-        Self::Uniform { data, dim }
+    pub fn make_uniform(data: T, dim: usize, num_dof: usize) -> Self {
+        Self::Uniform { data, dim, num_dof }
     }
 
     /// Make an operator with only 0 and `data` entries from a list of tuples:
     /// (input, output): |output><input|
-    pub fn make_sparse_uniform(data: T, dim: usize, matrix_entries: Vec<(usize, usize)>) -> Self {
+    pub fn make_sparse_uniform(data: T, dim: usize, matrix_entries: Vec<(usize, usize)>, num_dof: usize) -> Self {
         let mut inputs = matrix_entries
             .iter()
             .copied()
@@ -108,6 +118,7 @@ where
             dim,
             outputs_for_input,
             inputs_for_output,
+            num_dof,
         }
     }
 }
@@ -120,10 +131,10 @@ where
         match &self {
             Self::Identity { .. } if input == output => T::one(),
             Self::Identity { .. } => T::zero(),
-            Self::Diagonal { data } if input == output => data[input].clone(),
+            Self::Diagonal { data, .. } if input == output => data[input].clone(),
             Self::Diagonal { .. } => T::zero(),
             Self::Uniform { data, .. } => data.clone(),
-            Self::Generic { data, dim } => data[output * dim + input].clone(),
+            Self::Generic { data, dim, .. } => data[output * dim + input].clone(),
             Self::UniformSparse {
                 data,
                 outputs_for_input,
@@ -140,7 +151,7 @@ where
     fn dim(&self) -> usize {
         match self {
             Self::Identity { dim, .. } => *dim,
-            Self::Diagonal { data } => data.len(),
+            Self::Diagonal { data, .. } => data.len(),
             Self::Uniform { dim, .. } => *dim,
             Self::UniformSparse { dim, .. } => *dim,
             Self::Generic { dim, .. } => *dim,
@@ -150,8 +161,8 @@ where
     fn get_weight_change_for_diagonal(&self, old_state: usize, new_state: usize) -> Option<(T, T)> {
         match &self {
             Self::Identity { .. } | Self::Uniform { .. } => None,
-            Self::Diagonal { data } => Some((data[old_state].clone(), data[new_state].clone())),
-            Self::Generic { data, dim } => {
+            Self::Diagonal { data, .. } => Some((data[old_state].clone(), data[new_state].clone())),
+            Self::Generic { data, dim, .. } => {
                 let old_value = data[old_state * (dim + 1)].clone();
                 let new_value = data[new_state * (dim + 1)].clone();
                 Some((old_value, new_value))
@@ -188,6 +199,16 @@ where
 
     fn get_natural_offset(&self) -> T {
         T::zero()
+    }
+
+    fn num_dof(&self) -> usize {
+        match self {
+            GenericMatrixTermEnum::Identity { num_dof, .. } |
+            GenericMatrixTermEnum::Diagonal { num_dof, .. } |
+            GenericMatrixTermEnum::Uniform { num_dof, .. } |
+            GenericMatrixTermEnum::UniformSparse { num_dof, .. } |
+            GenericMatrixTermEnum::Generic { num_dof, .. } => *num_dof,
+        }
     }
 }
 

@@ -31,6 +31,13 @@ where
         }
     }
 
+    fn num_dof(&self) -> usize {
+        match self {
+            TFIMTerm::ZZ(_) => 2,
+            TFIMTerm::X(_) => 1,
+        }
+    }
+
     fn dim(&self) -> usize {
         match self {
             TFIMTerm::ZZ(_) => 4,

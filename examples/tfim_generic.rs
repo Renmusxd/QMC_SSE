@@ -12,12 +12,12 @@ fn main() {
 
     for i in 0..n {
         qmc.add_term(
-            GenericMatrixTermEnum::make_diagonal(vec![1.0, 0.0, 0.0, 1.0]),
+            GenericMatrixTermEnum::make_diagonal(vec![1.0, 0.0, 0.0, 1.0], 2),
             vec![i, (i + 1) % n],
         );
     }
     for i in 0..n {
-        qmc.add_term(GenericMatrixTermEnum::make_uniform(1.0, 2), vec![i]);
+        qmc.add_term(GenericMatrixTermEnum::make_uniform(1.0, 2, 1), vec![i]);
     }
 
     let beta = 16.0;

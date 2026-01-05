@@ -375,6 +375,10 @@ mod cluster_tests {
         fn get_natural_offset(&self) -> f64 {
             0.0
         }
+
+        fn num_dof(&self) -> usize {
+            1
+        }
     }
     impl MatrixTermFlippable<f64> for EyePlusXMatrixTerm {
         fn is_maybe_flippable(&self) -> bool {
@@ -501,6 +505,11 @@ mod cluster_tests {
                 _ => 0.0
             }
         }
+
+        fn num_dof(&self) -> usize {
+            2
+        }
+
         fn dim(&self) -> usize {
             4
         }
@@ -627,6 +636,11 @@ mod cluster_tests {
                 _ => panic!("Should not be reachable.")
             }
         }
+
+        fn num_dof(&self) -> usize {
+            2
+        }
+
         fn dim(&self) -> usize {
             4
         }
