@@ -47,7 +47,7 @@ mod weight_tests {
 
     #[test]
     fn test_get_matrix_data() {
-        let term_enum = GenericMatrixTermEnum::make_diagonal(vec![1, 2], 1);
+        let term_enum = GenericMatrixTermEnum::make_diagonal(vec![1, 2]);
         assert_eq!(term_enum.get_matrix_entry(0, 0), 1);
         assert_eq!(term_enum.get_matrix_entry(1, 1), 2);
         assert_eq!(term_enum.get_matrix_entry(1, 0), 0);
@@ -59,7 +59,7 @@ mod weight_tests {
         let mut qmc = GenericQMC::<bool, _>::new(3);
 
         qmc.add_term(
-            GenericMatrixTermEnum::make_diagonal(vec![1.0, 2.0], 1),
+            GenericMatrixTermEnum::make_diagonal(vec![1.0, 2.0]),
             vec![0],
         );
         assert_eq!(qmc.get_possible_terms().len(), 1);
@@ -69,7 +69,7 @@ mod weight_tests {
     fn add_node_connected_to_matrix_term() {
         let mut qmc = GenericQMC::<bool, _>::new(3);
         let term_handle = qmc.add_term(
-            GenericMatrixTermEnum::make_diagonal(vec![1.0, 2.0], 1),
+            GenericMatrixTermEnum::make_diagonal(vec![1.0, 2.0]),
             vec![0],
         );
         qmc.add_node(0, term_handle);

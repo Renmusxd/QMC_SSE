@@ -498,8 +498,6 @@ pub struct DoublyLinkedNode<DOF: DOFTypeTrait> {
 pub trait MatrixTermData<T> {
     /// Return the matrix entry connecting an `input` to an `output`, or the coefficient in front of |output><input|.
     fn get_matrix_entry(&self, input: usize, output: usize) -> T;
-    /// Get the number of DOFs acted on by this term
-    fn num_dof(&self) -> usize;
     /// The dimension of the input/output space.
     fn dim(&self) -> usize;
     /// For a fixed `input`, how distinct outputs, other than `output` have the same weight as `get_matrix_entry(input, output)`.

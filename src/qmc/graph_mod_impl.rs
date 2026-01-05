@@ -341,7 +341,7 @@ mod test_modify_graph {
     #[test]
     fn test_modify_graph_simple() {
         let mut qmc = GenericQMC::<bool, _>::new(3);
-        let term = qmc.add_term(GenericMatrixTermEnum::Identity { dim: 2, num_dof: 1 }, vec![0]);
+        let term = qmc.add_term(GenericMatrixTermEnum::Identity { dim: 2 }, vec![0]);
         qmc.add_node(0, term);
 
         let first_node = qmc.get_first_node_for_dof(&0);
@@ -360,7 +360,6 @@ mod test_modify_graph {
             let term = qmc.add_term(
                 GenericMatrixTermEnum::Identity {
                     dim: 1 << vars.len(),
-                    num_dof: vars.len(),
                 },
                 vars.clone(),
             );

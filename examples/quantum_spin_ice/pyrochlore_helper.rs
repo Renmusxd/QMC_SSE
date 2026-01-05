@@ -194,7 +194,7 @@ impl PyrochloreLatticeHelper {
                 .iter()
                 .all(|site| spin_lookup.contains_key(site));
             if all_spins_are_present {
-                let term = RingExchangeData::new(1.0, index_for_flip, other_index_for_flip, 1 << 6, 6);
+                let term = RingExchangeData::new(1.0, index_for_flip, other_index_for_flip, 1 << 6);
                 let indices = ring_from_site
                     .into_iter()
                     .map(|site| spin_lookup.get(&site).copied().expect("Should be present."))

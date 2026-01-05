@@ -13,7 +13,6 @@ where
     exchangeable_state_a: usize,
     exchangeable_state_b: usize,
     dim: usize,
-    num_dof: usize
 }
 
 impl<T: Clone> RingExchangeData<T> {
@@ -23,14 +22,12 @@ impl<T: Clone> RingExchangeData<T> {
         exchangeable_state_a: usize,
         exchangeable_state_b: usize,
         dim: usize,
-        num_dof: usize
     ) -> Self {
         Self {
             scale,
             exchangeable_state_a,
             exchangeable_state_b,
             dim,
-            num_dof,
         }
     }
 }
@@ -112,8 +109,5 @@ where
     fn get_natural_offset(&self) -> T {
         self.scale.clone()
     }
-
-    fn num_dof(&self) -> usize {
-        self.num_dof
-    }
+    
 }
