@@ -27,13 +27,14 @@ fn main() {
     // Diagonal therm
     let diagonal_therm = 128;
     for _ in 0..diagonal_therm {
+        qmc.maintain_maximum_filling_fraction(0.75, v);
         qmc.diagonal_update(beta, &mut rng);
     }
 
     // Thermalization with off-diagonals.
     let full_therm = 128;
     for _ in 0..full_therm {
-        qmc.maintain_maximum_filling_fraction(0.75, 16);
+        qmc.maintain_maximum_filling_fraction(0.75, v);
         qmc.diagonal_update(beta, &mut rng);
         for _ in 0..v {
             qmc.naive_flip_update(&mut rng);
@@ -42,7 +43,7 @@ fn main() {
 
     // Measure autocorrelation
     let autocorr_data = qmc.autocorr_for_terms(beta, 128, |qmc| {
-        qmc.maintain_maximum_filling_fraction(0.75, 16);
+        qmc.maintain_maximum_filling_fraction(0.75, v);
         qmc.diagonal_update(beta, &mut rng);
         for _ in 0..v {
             qmc.naive_flip_update(&mut rng);
