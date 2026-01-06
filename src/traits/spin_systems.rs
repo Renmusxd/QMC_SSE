@@ -86,7 +86,7 @@ impl<const N: usize> DOFTypeTrait for Spin<N> {
         let choice = if N == 2 {
             1 - self.value
         } else {
-            let choice = rng.sample(Uniform::new(0, N - 1).unwrap());
+            let choice = rng.sample(Uniform::new(1, N).unwrap());
             (self.value + choice) % N
         };
         Self {
