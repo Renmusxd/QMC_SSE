@@ -1,7 +1,7 @@
+use rand::Rng;
+use rand::distr::Uniform;
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use rand::distr::Uniform;
-use rand::Rng;
 
 /// This graph can be navigated by following nodes.
 pub trait GraphStateNavigator {
@@ -198,13 +198,21 @@ pub trait DOFTypeTrait: Eq + PartialEq + Clone + Copy + Default + Debug {
     }
 
     /// Get a random DOF value.
-    fn get_random<R>(rng: &mut R) -> Self where R: Rng {
-        let choice =rng.sample(Uniform::new(0, Self::local_dimension()).unwrap());
-        Self::iterate_through_values().take(choice + 1).last().unwrap()
+    fn get_random<R>(rng: &mut R) -> Self
+    where
+        R: Rng,
+    {
+        let choice = rng.sample(Uniform::new(0, Self::local_dimension()).unwrap());
+        Self::iterate_through_values()
+            .take(choice + 1)
+            .last()
+            .unwrap()
     }
 
     /// Get a random DOF value distinct from self.
-    fn get_distinct_random<R>(&self, rng: &mut R) -> Self where R: Rng;
+    fn get_distinct_random<R>(&self, rng: &mut R) -> Self
+    where
+        R: Rng;
 }
 
 /// Graph context necessary for node insertion.
@@ -260,7 +268,8 @@ where
     ) -> Option<Link<Self::TimesliceIndex>>;
 
     /// Get all links "connected" to this node.
-    fn get_next_nodes_for_node(&self, node: &Self::Node) -> Vec<Option<Link<Self::TimesliceIndex>>>;
+    fn get_next_nodes_for_node(&self, node: &Self::Node)
+    -> Vec<Option<Link<Self::TimesliceIndex>>>;
 
     /// Insert a node at the given timeslice using a constructor.
     fn insert_node<F>(
@@ -315,7 +324,6 @@ where
     where
         F: FnOnce(GraphContext<Self::DOFType, Link<Self::TimesliceIndex>>) -> Self::Node;
 }
-
 
 /// A node which can point to the next nodes
 pub trait LinkedGraphNode: GraphNode {

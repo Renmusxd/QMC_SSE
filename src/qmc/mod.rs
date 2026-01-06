@@ -12,17 +12,17 @@ pub mod cluster_impl;
 pub mod diagonal_impl;
 /// Functions for manipulating the worldline graph.
 pub mod graph_mod_impl;
+/// Convert the QMC terms into a Hamiltonian.
+#[cfg(feature = "matrixrep")]
+pub mod matrixrep;
 /// The simple offdiagonal update which flips DOFs between pairs of operators.
 pub mod naive_flip_impl;
 /// Graph navigation.
 pub mod navigator_impl;
-/// Functions of adding weights to the graph nodes.
-pub mod weight_impl;
 /// Simple updates for empty worldlines at high temperatures.
 pub mod thermal_update_impl;
-/// Convert the QMC terms into a Hamiltonian.
-#[cfg(feature = "matrixrep")]
-pub mod matrixrep;
+/// Functions of adding weights to the graph nodes.
+pub mod weight_impl;
 
 /// Matrix terms are addressed using the MatrixTermHandle type.
 pub type MatrixTermHandle = usize;
@@ -125,8 +125,8 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
         }
     }
 
-    /// Resize the number of internal timeslices such that the fraction of non-identity operators is no greater than `frac`. 
-    /// Recommended to call between diagonal updates with frac~0.75. 
+    /// Resize the number of internal timeslices such that the fraction of non-identity operators is no greater than `frac`.
+    /// Recommended to call between diagonal updates with frac~0.75.
     /// Will automatically resize to no less than `min_val`.
     pub fn maintain_maximum_filling_fraction(&mut self, frac: f64, min_val: usize) {
         let size_to_meet_quota = ((self.num_non_identity_terms as f64) / frac).ceil() as usize;
@@ -136,7 +136,10 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
 
     /// Adds a term to the Hamiltonian represented by `data`. The term acts on `act_on_indices`.
     /// Returns a handle to the term.
-    pub fn add_term<Indices>(&mut self, data: TermData, act_on_indices: Indices) -> MatrixTermHandle where Indices: Into<Vec<usize>> {
+    pub fn add_term<Indices>(&mut self, data: TermData, act_on_indices: Indices) -> MatrixTermHandle
+    where
+        Indices: Into<Vec<usize>>,
+    {
         let act_on_indices = act_on_indices.into();
         debug_assert_eq!(
             data.dim(),
@@ -494,7 +497,7 @@ pub struct DoublyLinkedNode<DOF: DOFTypeTrait> {
     index_of_entry_into_flippable_list: Option<usize>,
 }
 
-/// A term in the Hamiltonian must implement `MatrixTermData` with weights of type `T`. 
+/// A term in the Hamiltonian must implement `MatrixTermData` with weights of type `T`.
 pub trait MatrixTermData<T> {
     /// Return the matrix entry connecting an `input` to an `output`, or the coefficient in front of |output><input|.
     fn get_matrix_entry(&self, input: usize, output: usize) -> T;

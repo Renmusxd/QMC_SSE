@@ -46,7 +46,10 @@ where
     T: One + Zero + Clone,
 {
     /// Make a diagonal operator given the diagonal `data`.
-    pub fn make_diagonal<VT>(data: VT) -> Self where VT: Into<Vec<T>> {
+    pub fn make_diagonal<VT>(data: VT) -> Self
+    where
+        VT: Into<Vec<T>>,
+    {
         Self::Diagonal { data: data.into() }
     }
 

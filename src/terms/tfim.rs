@@ -80,7 +80,7 @@ where
     fn get_natural_offset(&self) -> T {
         match self {
             TFIMTerm::ZZ(jj) => jj.abs(),
-            TFIMTerm::X(gamma) => gamma.clone()
+            TFIMTerm::X(gamma) => gamma.clone(),
         }
     }
 }
@@ -163,21 +163,28 @@ impl<T> TermClusterExpander<bool> for TFIMTerm<T> {
         // The compiler may be able to optimize this since there are no heap interactions.
         let (own_state, other_state) = match direction {
             DirectionEnum::Input => (input, output),
-            DirectionEnum::Output => (output, input)
+            DirectionEnum::Output => (output, input),
         };
         let other_direction = direction.swap_direction();
-
 
         let num_to_select = match self {
             TFIMTerm::ZZ(_) => 3,
             TFIMTerm::X(_) => 0,
         };
 
-        let other_index = if num_to_select == 3 { 1 - relative_index } else { 0 };
+        let other_index = if num_to_select == 3 {
+            1 - relative_index
+        } else {
+            0
+        };
 
         let ising_array = [
             (direction, other_index, !own_state[other_index]),
-            (other_direction, relative_index, !other_state[relative_index]),
+            (
+                other_direction,
+                relative_index,
+                !other_state[relative_index],
+            ),
             (other_direction, other_index, !other_state[other_index]),
         ];
 

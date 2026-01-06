@@ -1,6 +1,6 @@
-use rand::distr::Uniform;
-use rand::Rng;
 use crate::traits::graph_traits::DOFTypeTrait;
+use rand::Rng;
+use rand::distr::Uniform;
 
 impl DOFTypeTrait for bool {
     fn local_dimension() -> usize {
@@ -29,13 +29,16 @@ impl DOFTypeTrait for bool {
             .sum()
     }
 
-    fn get_random<R>(rng: &mut R) -> Self where R: Rng {
+    fn get_random<R>(rng: &mut R) -> Self
+    where
+        R: Rng,
+    {
         rng.random()
     }
 
     fn get_distinct_random<R>(&self, _rng: &mut R) -> Self
     where
-        R: Rng
+        R: Rng,
     {
         !*self
     }
@@ -48,7 +51,6 @@ pub struct Spin<const N: usize> {
 }
 
 impl<const N: usize> Spin<N> {
-
     /// Construct a new Spin in state `value` out of `N`.
     pub fn new(value: usize) -> Self {
         Self { value }
@@ -72,16 +74,17 @@ impl<const N: usize> DOFTypeTrait for Spin<N> {
         (0..N).map(Self::new)
     }
 
-    fn get_random<R>(rng: &mut R) -> Self where R: Rng {
+    fn get_random<R>(rng: &mut R) -> Self
+    where
+        R: Rng,
+    {
         let choice = rng.sample(Uniform::new(0, N).unwrap());
-        Self {
-            value: choice
-        }
+        Self { value: choice }
     }
 
     fn get_distinct_random<R>(&self, rng: &mut R) -> Self
     where
-        R: Rng
+        R: Rng,
     {
         let choice = if N == 2 {
             1 - self.value
@@ -89,8 +92,6 @@ impl<const N: usize> DOFTypeTrait for Spin<N> {
             let choice = rng.sample(Uniform::new(1, N).unwrap());
             (self.value + choice) % N
         };
-        Self {
-            value: choice
-        }
+        Self { value: choice }
     }
 }

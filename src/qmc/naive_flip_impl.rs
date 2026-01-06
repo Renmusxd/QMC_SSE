@@ -407,7 +407,7 @@ mod test_naive_flip_implementation {
         let flip_term = GenericMatrixTermEnum::make_sparse_uniform(
             1.0,
             4,
-            vec![(0, 0), (1, 1), (2, 2), (3, 3), (0, 1), (1, 0)]
+            vec![(0, 0), (1, 1), (2, 2), (3, 3), (0, 1), (1, 0)],
         );
 
         assert_eq!(

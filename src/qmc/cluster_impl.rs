@@ -3,10 +3,10 @@ use crate::traits::cluster_update::{
     ClusterManager, ClusterUpdater, DirectionEnum, HasTimeslice, Leg, NodeClusterExpansion,
 };
 use crate::traits::graph_traits::{DOFTypeTrait, GraphNode, TimeSlicedGraph};
-use rand::Rng;
-use std::collections::HashMap;
 use num_traits::Zero;
+use rand::Rng;
 use rand::distr::Uniform;
+use std::collections::HashMap;
 
 impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>, GC> ClusterUpdater for GenericQMC<DOF, Data, GC>
 where
@@ -21,30 +21,46 @@ where
 
     fn cluster_update<R>(&mut self, rng: &mut R) -> Result<bool, String>
     where
-        R: Rng
+        R: Rng,
     {
         if self.num_non_identity_terms.is_zero() {
             return Ok(true);
         }
 
         let choice = rng.sample(Uniform::new(0, self.num_non_identity_terms).unwrap());
-        let choice_timeslice = self.list_of_nodes_by_term.iter().try_fold(choice, |choice, node_list| {
-            if choice < node_list.len() {
-                Err(node_list[choice])
-            } else {
-                Ok(choice - node_list.len())
-            }
-        }).expect_err("Choice must always select a node.");
+        let choice_timeslice = self
+            .list_of_nodes_by_term
+            .iter()
+            .try_fold(choice, |choice, node_list| {
+                if choice < node_list.len() {
+                    Err(node_list[choice])
+                } else {
+                    Ok(choice - node_list.len())
+                }
+            })
+            .expect_err("Choice must always select a node.");
 
-        let direction = if rng.random::<bool>() { DirectionEnum::Input } else { DirectionEnum::Output };
-        let node = self.get_node(&choice_timeslice).expect("Choice timeslice must point to node");
+        let direction = if rng.random::<bool>() {
+            DirectionEnum::Input
+        } else {
+            DirectionEnum::Output
+        };
+        let node = self
+            .get_node(&choice_timeslice)
+            .expect("Choice timeslice must point to node");
         let relative_index = rng.sample(Uniform::new(0, node.input_state.len()).unwrap());
         let old_dof_value = match direction {
             DirectionEnum::Input => &node.input_state[relative_index],
             DirectionEnum::Output => &node.output_state[relative_index],
         };
         let new_dof_value = old_dof_value.get_distinct_random(rng);
-        self.cluster_update_starting_from_timeslice(&choice_timeslice, direction, relative_index, new_dof_value, rng)
+        self.cluster_update_starting_from_timeslice(
+            &choice_timeslice,
+            direction,
+            relative_index,
+            new_dof_value,
+            rng,
+        )
     }
 
     fn output_changes_for_spin_flip<R>(
@@ -497,8 +513,8 @@ mod cluster_tests {
         fn get_matrix_entry(&self, input: usize, output: usize) -> f64 {
             match (input, output) {
                 (i, o) if i == o => 1.0,
-                (i, o) if i == !o & 0b11  => 1.0,
-                _ => 0.0
+                (i, o) if i == !o & 0b11 => 1.0,
+                _ => 0.0,
             }
         }
 
@@ -621,11 +637,13 @@ mod cluster_tests {
 
     impl MatrixTermData<f64> for EyeEyePlusZZMatrixTerm {
         fn get_matrix_entry(&self, input: usize, output: usize) -> f64 {
-            if input != output { return 0.0; }
+            if input != output {
+                return 0.0;
+            }
             match input {
                 0b00 | 0b11 => 2.0,
                 0b01 | 0b10 => 0.0,
-                _ => panic!("Should not be reachable.")
+                _ => panic!("Should not be reachable."),
             }
         }
 

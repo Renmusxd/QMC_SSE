@@ -30,7 +30,9 @@ where
 
     /// Run a "cluster update". This typically involves choosing a starting
     /// node and leg at random then calling `cluster_update_starting_from_timeslice`.
-    fn cluster_update<R>(&mut self, rng: &mut R) -> Result<bool, String> where R: Rng;
+    fn cluster_update<R>(&mut self, rng: &mut R) -> Result<bool, String>
+    where
+        R: Rng;
 
     /// The machinery of the cluster update comes from this function. Given a starting leg, flip a
     /// DOF and then track the implications to other node legs. Repeat until the graph contains no
@@ -133,7 +135,12 @@ where
             #[cfg(debug_assertions)]
             let after_total_weight = self.get_total_graph_weight_from_nodes();
             #[cfg(debug_assertions)]
-            debug_assert!(((after_total_weight / before_total_weight) - weight_change.get_weight().unwrap_or(0.0)).abs() < 1e-6);
+            debug_assert!(
+                ((after_total_weight / before_total_weight)
+                    - weight_change.get_weight().unwrap_or(0.0))
+                .abs()
+                    < 1e-6
+            );
         } else {
             #[cfg(debug_assertions)]
             let after_total_weight = self.get_total_graph_weight_from_nodes();
@@ -178,7 +185,7 @@ where
                         .expect("Worldline cannot be empty.")
                 });
                 FollowResult::new(
-                    Leg::Input{
+                    Leg::Input {
                         node,
                         relative_index,
                     },
@@ -305,14 +312,14 @@ pub enum Leg<N> {
         /// The node referenced.
         node: N,
         /// The relative index of the leg
-        relative_index: usize
+        relative_index: usize,
     },
     /// An output leg.
     Output {
         /// The node referenced.
         node: N,
         /// The relative index of the leg
-        relative_index: usize
+        relative_index: usize,
     },
 }
 
@@ -320,11 +327,11 @@ impl<N> Leg<N> {
     /// Make a new leg given a direction, a node, and a relative index.
     pub fn new(node: N, direction_enum: DirectionEnum, relative_index: usize) -> Self {
         match direction_enum {
-            DirectionEnum::Input => Self::Input{
+            DirectionEnum::Input => Self::Input {
                 node,
                 relative_index,
             },
-            DirectionEnum::Output => Self::Output{
+            DirectionEnum::Output => Self::Output {
                 node,
                 relative_index,
             },
@@ -348,8 +355,8 @@ impl<N> Leg<N> {
     /// Get the direction the leg is facing.
     pub fn get_direction(&self) -> DirectionEnum {
         match self {
-            Leg::Input {..} => DirectionEnum::Input,
-            Leg::Output {..} => DirectionEnum::Output,
+            Leg::Input { .. } => DirectionEnum::Input,
+            Leg::Output { .. } => DirectionEnum::Output,
         }
     }
 }
