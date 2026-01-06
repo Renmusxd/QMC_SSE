@@ -146,7 +146,6 @@ pub trait DOFTypeTrait: Eq + PartialEq + Clone + Copy + Default + Debug {
     fn local_dimension() -> usize;
 
     /// Convert the DOF to a usize representation
-
     fn to_index(&self) -> usize;
 
     /// Convert the usize representation back to DOF
@@ -201,7 +200,7 @@ pub trait DOFTypeTrait: Eq + PartialEq + Clone + Copy + Default + Debug {
     /// Get a random DOF value.
     fn get_random<R>(rng: &mut R) -> Self where R: Rng {
         let choice =rng.sample(Uniform::new(0, Self::local_dimension()).unwrap());
-        Self::iterate_through_values().into_iter().take(choice + 1).last().unwrap()
+        Self::iterate_through_values().take(choice + 1).last().unwrap()
     }
 
     /// Get a random DOF value distinct from self.

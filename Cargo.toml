@@ -30,3 +30,7 @@ panic = "abort"
 
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "./src/docs-header.html" ]
+
+[[example]]
+name = "quantum_spin_ice"
+required-features = ["autocorrelations"]
