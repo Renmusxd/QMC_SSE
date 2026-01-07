@@ -119,7 +119,7 @@ pub trait GraphNode {
     fn get_output_state(&self) -> &[Self::DOFType];
 
     /// Get the output state as a mutable reference.
-    fn get_output_state_mut(&mut self) -> &[Self::DOFType];
+    fn get_output_state_mut(&mut self) -> &mut [Self::DOFType];
 
     /// Return an iterator over indices and input/output DOF refs for that index.
     fn iterate_over_indices_and_states(

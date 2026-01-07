@@ -97,7 +97,7 @@ impl<DOF: DOFTypeTrait> GraphNode for DoublyLinkedNode<DOF> {
         &self.output_state
     }
 
-    fn get_output_state_mut(&mut self) -> &[Self::DOFType] {
+    fn get_output_state_mut(&mut self) -> &mut [Self::DOFType] {
         self.output_state.as_mut_slice()
     }
 

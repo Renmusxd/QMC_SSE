@@ -86,14 +86,6 @@ where
         self.dim
     }
 
-    fn get_weight_change_for_diagonal(
-        &self,
-        _old_state: usize,
-        _new_state: usize,
-    ) -> Option<(T, T)> {
-        None
-    }
-
     fn get_number_of_equal_weight_outputs_for_input_distinct_from_output(
         &self,
         input: usize,
@@ -104,6 +96,14 @@ where
         } else {
             0
         }
+    }
+
+    fn get_weight_change_for_diagonal(
+        &self,
+        _old_state: usize,
+        _new_state: usize,
+    ) -> Option<(T, T)> {
+        None
     }
 
     fn get_natural_offset(&self) -> T {
