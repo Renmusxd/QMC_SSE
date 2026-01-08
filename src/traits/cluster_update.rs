@@ -416,5 +416,5 @@ where
 pub enum ClusterError {
     /// An error for a timeslice missing a node.
     #[error("the cluster starting timeslice does not contain a node")]
-    TimesliceMissingNode
+    TimesliceMissingNode,
 }

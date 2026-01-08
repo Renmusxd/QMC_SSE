@@ -86,7 +86,9 @@ where
     {
         // Only in debug.
         debug_assert!(self.check_graph_consistency());
+        #[cfg(debug_assertions)]
         let weight_before_update = self.get_total_graph_weight_from_nodes();
+        #[cfg(debug_assertions)]
         debug_assert!(
             weight_before_update > f64::EPSILON,
             "Weight going into flip is zero"
@@ -171,25 +173,28 @@ where
             &end_flip_location,
         );
 
-        let weight_after_update = self.get_total_graph_weight_from_nodes();
-        debug_assert!(
-            weight_after_update > f64::EPSILON,
-            "Weight after flip is zero. Flip started at {:?} ended at {:?}",
-            start_pos,
-            end_flip_location
-        );
+        #[cfg(debug_assertions)]
+        {
+            let weight_after_update = self.get_total_graph_weight_from_nodes();
+            debug_assert!(
+                weight_after_update > f64::EPSILON,
+                "Weight after flip is zero. Flip started at {:?} ended at {:?}",
+                start_pos,
+                end_flip_location
+            );
 
-        let target = weight_change_on_flip.unwrap_or(1.0);
-        debug_assert!(
-            (weight_after_update / weight_before_update - target).abs() < f64::EPSILON,
-            "Weights changed in an unexpected way: \t {:.3} -> {:.3} vs expected {:.3}\tFlip started at {:?} ended at {:?}",
-            weight_before_update,
-            weight_after_update,
-            target,
-            start_pos,
-            end_flip_location
-        );
-        debug_assert!(self.check_graph_consistency());
+            let target = weight_change_on_flip.unwrap_or(1.0);
+            debug_assert!(
+                (weight_after_update / weight_before_update - target).abs() < f64::EPSILON,
+                "Weights changed in an unexpected way: \t {:.3} -> {:.3} vs expected {:.3}\tFlip started at {:?} ended at {:?}",
+                weight_before_update,
+                weight_after_update,
+                target,
+                start_pos,
+                end_flip_location
+            );
+            debug_assert!(self.check_graph_consistency());
+        }
     }
 }
 

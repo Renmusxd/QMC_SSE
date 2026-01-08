@@ -1,6 +1,7 @@
 use crate::qmc::{DoublyLinkedNode, GenericQMC, MatrixTermData};
 use crate::traits::cluster_update::{
-    ClusterError, ClusterManager, ClusterUpdater, DirectionEnum, HasTimeslice, Leg, NodeClusterExpansion
+    ClusterError, ClusterManager, ClusterUpdater, DirectionEnum, HasTimeslice, Leg,
+    NodeClusterExpansion,
 };
 use crate::traits::graph_traits::{DOFTypeTrait, GraphNode, TimeSlicedGraph};
 use num_traits::Zero;

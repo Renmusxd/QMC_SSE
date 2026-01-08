@@ -3,12 +3,13 @@ pub mod pyrochlore_helper;
 use crate::pyrochlore_helper::PyrochloreLatticeHelper;
 use qmc::qmc::GenericQMC;
 use qmc::traits::diagonal_update::DiagonalUpdate;
+use qmc::traits::graph_weights::GraphWeight;
 use qmc::traits::naive_flip_update::NaiveFlipUpdater;
 use rand::SeedableRng;
 use rand::prelude::SmallRng;
 
 fn main() {
-    let l = 4;
+    let l = 16;
 
     let pyrochlore_helper = PyrochloreLatticeHelper::new(l, l, l);
 
@@ -23,18 +24,19 @@ fn main() {
 
     let mut rng = SmallRng::seed_from_u64(12345);
     let beta = 16.0;
+    let estimated_timeslices = (beta * qmc.get_possible_terms().len() as f64 * 1.25) as usize;
 
     // Diagonal therm
-    let diagonal_therm = 128;
+    let diagonal_therm = 1024;
     for _ in 0..diagonal_therm {
-        qmc.maintain_maximum_filling_fraction(0.75, v);
+        qmc.maintain_maximum_filling_fraction(0.75, estimated_timeslices);
         qmc.diagonal_update(beta, &mut rng);
     }
 
     // Thermalization with off-diagonals.
     let full_therm = 128;
     for _ in 0..full_therm {
-        qmc.maintain_maximum_filling_fraction(0.75, v);
+        qmc.maintain_maximum_filling_fraction(0.75, estimated_timeslices);
         qmc.diagonal_update(beta, &mut rng);
         for _ in 0..v {
             qmc.naive_flip_update(&mut rng);

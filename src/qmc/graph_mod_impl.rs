@@ -196,83 +196,92 @@ impl<DOF: DOFTypeTrait, Data: MatrixTermData<f64>, GC> TimeSlicedGraph
         self.remove_node(timeslice);
         debug_assert!(self.time_slices[*timeslice].is_none());
 
-        let mut state = vec![];
-        let mut links_back = vec![];
-        let mut links_forward = vec![];
+        let mut state = vec![DOF::default(); variables.len()];
+        let mut links_back = vec![None; variables.len()];
+        let mut links_forward = vec![None; variables.len()];
+        let write_it = state
+            .iter_mut()
+            .zip(links_back.iter_mut())
+            .zip(links_forward.iter_mut())
+            .map(|((x, y), z)| (x, y, z));
 
         variables
             .iter()
             .copied()
             .enumerate()
-            .for_each(|(relative_index, global_index)| {
-                // Get information from the nodes.
-                let link_to_previous_node_for_variable =
-                    all_previous_node_indices[global_index].as_ref();
-                let (s, b, f) = if let Some(link) = link_to_previous_node_for_variable {
-                    let n = self.time_slices[link.timeslice]
-                        .as_ref()
-                        .expect("Pointer to previous node finds empty timeslice.");
-                    let s = n.output_state[link.relative_index];
-                    let b = Some(link.clone());
-                    let f = n.next_node_index_for_variable[link.relative_index].clone();
-                    (s, b, f)
-                } else {
-                    let s = self.initial_state[global_index];
-                    let b = None;
-                    let f = self.first_nodes_for_dofs[global_index].clone();
-                    (s, b, f)
-                };
+            .zip(write_it)
+            .for_each(
+                |((relative_index, global_index), (state, backlink, forwardlink))| {
+                    // Get information from the nodes.
+                    let link_to_previous_node_for_variable =
+                        all_previous_node_indices[global_index].as_ref();
+                    let (s, b, f) = if let Some(link) = link_to_previous_node_for_variable {
+                        let n = self.time_slices[link.timeslice]
+                            .as_ref()
+                            .expect("Pointer to previous node finds empty timeslice.");
+                        let s = n.output_state[link.relative_index];
+                        let b = Some(link.clone());
+                        let f = n.next_node_index_for_variable[link.relative_index].clone();
+                        (s, b, f)
+                    } else {
+                        let s = self.initial_state[global_index];
+                        let b = None;
+                        let f = self.first_nodes_for_dofs[global_index].clone();
+                        (s, b, f)
+                    };
 
-                debug_assert!(
-                    match &b {
-                        None => true,
-                        Some(t) => t.timeslice < *timeslice,
-                    },
-                    "Backward pointer must be before timeslice."
-                );
+                    debug_assert!(
+                        match &b {
+                            None => true,
+                            Some(t) => t.timeslice < *timeslice,
+                        },
+                        "Backward pointer must be before timeslice."
+                    );
 
-                debug_assert!(
-                    match &f {
-                        None => true,
-                        Some(t) => t.timeslice > *timeslice,
-                    },
-                    "Forward pointer must be after timeslice."
-                );
+                    debug_assert!(
+                        match &f {
+                            None => true,
+                            Some(t) => t.timeslice > *timeslice,
+                        },
+                        "Forward pointer must be after timeslice."
+                    );
 
-                // Now modify the nodes to point to the new spot.
-                let link_to_me = Some(Link {
-                    timeslice: *timeslice,
-                    relative_index,
-                });
-                // Modify previous node or head
-                if let Some(link) = b.as_ref() {
-                    // There's a previous node. Point towards this new position.
-                    let prev_node = self.time_slices[link.timeslice]
-                        .as_mut()
-                        .expect("Pointer to previous node finds empty timeslice.");
-                    prev_node.next_node_index_for_variable[link.relative_index] =
-                        link_to_me.clone();
-                } else {
-                    // There's no previous node. We are the new head.
-                    self.first_nodes_for_dofs[global_index] = link_to_me.clone();
-                }
-                // Modify next node or tail.
-                if let Some(link) = f.as_ref() {
-                    // There's a next node. Point towards this new position.
-                    let next_node = self.time_slices[link.timeslice]
-                        .as_mut()
-                        .expect("Pointer to next node finds empty timeslice.");
-                    next_node.previous_node_index_for_variable[link.relative_index] = link_to_me;
-                } else {
-                    // There's no next node. We are the new tail.
-                    self.last_nodes_for_dofs[global_index] = link_to_me;
-                }
+                    // Now modify the nodes to point to the new spot.
+                    let link_to_me = Some(Link {
+                        timeslice: *timeslice,
+                        relative_index,
+                    });
+                    // Modify previous node or head
+                    if let Some(link) = b.as_ref() {
+                        // There's a previous node. Point towards this new position.
+                        let prev_node = self.time_slices[link.timeslice]
+                            .as_mut()
+                            .expect("Pointer to previous node finds empty timeslice.");
+                        prev_node.next_node_index_for_variable[link.relative_index] =
+                            link_to_me.clone();
+                    } else {
+                        // There's no previous node. We are the new head.
+                        self.first_nodes_for_dofs[global_index] = link_to_me.clone();
+                    }
+                    // Modify next node or tail.
+                    if let Some(link) = f.as_ref() {
+                        // There's a next node. Point towards this new position.
+                        let next_node = self.time_slices[link.timeslice]
+                            .as_mut()
+                            .expect("Pointer to next node finds empty timeslice.");
+                        next_node.previous_node_index_for_variable[link.relative_index] =
+                            link_to_me;
+                    } else {
+                        // There's no next node. We are the new tail.
+                        self.last_nodes_for_dofs[global_index] = link_to_me;
+                    }
 
-                // Save information for node construction purposes.
-                state.push(s);
-                links_back.push(b);
-                links_forward.push(f);
-            });
+                    // Save information for node construction purposes.
+                    *state = s;
+                    *backlink = b;
+                    *forwardlink = f;
+                },
+            );
 
         let context = GraphContext {
             local_state: state,

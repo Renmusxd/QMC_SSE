@@ -123,23 +123,21 @@ where
             };
 
             if let Some(node) = new_node {
-                node.iterate_over_outputs().enumerate().for_each(
-                    |(
-                        rel_index,
-                        LinkedGraphNodeOutputs {
+                node.iterate_over_outputs()
+                    .enumerate()
+                    .for_each(|(rel_index, node_outputs)| {
+                        let LinkedGraphNodeOutputs {
                             index: global_index,
                             value: dof_state,
                             ..
-                        },
-                    )| {
+                        } = node_outputs;
                         let global_index = global_index.clone().into();
                         incoming_state[global_index] = *dof_state;
                         last_nodes[global_index] = Some(Link {
                             timeslice: t.clone(),
                             relative_index: rel_index,
                         });
-                    },
-                );
+                    });
             };
 
             timeslice = self.get_next_timeslice(t);
