@@ -2,11 +2,11 @@ use rand::prelude::*;
 
 use qmc::qmc::GenericQMC;
 use qmc::terms::tfim::TFIMTerm;
-use qmc::traits::cluster_update::ClusterUpdater;
+use qmc::traits::cluster_update::{ClusterError, ClusterUpdater};
 use qmc::traits::diagonal_update::DiagonalUpdate;
 use qmc::traits::thermal_update::ThermalUpdate;
 
-fn main() -> Result<(), String> {
+fn main() -> Result<(), ClusterError> {
     env_logger::init();
     let n = 5;
     let bond_j = 0.5;

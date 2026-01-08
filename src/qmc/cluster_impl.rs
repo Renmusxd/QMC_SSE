@@ -1,6 +1,6 @@
 use crate::qmc::{DoublyLinkedNode, GenericQMC, MatrixTermData};
 use crate::traits::cluster_update::{
-    ClusterManager, ClusterUpdater, DirectionEnum, HasTimeslice, Leg, NodeClusterExpansion,
+    ClusterError, ClusterManager, ClusterUpdater, DirectionEnum, HasTimeslice, Leg, NodeClusterExpansion
 };
 use crate::traits::graph_traits::{DOFTypeTrait, GraphNode, TimeSlicedGraph};
 use num_traits::Zero;
@@ -19,7 +19,7 @@ where
     );
     type ClusterManager<'a> = GenericClusterManager<'a, Self::DOFType>;
 
-    fn cluster_update<R>(&mut self, rng: &mut R) -> Result<bool, String>
+    fn cluster_update<R>(&mut self, rng: &mut R) -> Result<bool, ClusterError>
     where
         R: Rng,
     {
@@ -441,7 +441,7 @@ mod cluster_tests {
     }
 
     #[test]
-    fn check_simple_cluster() -> Result<(), String> {
+    fn check_simple_cluster() -> Result<(), ClusterError> {
         let mut qmc = GenericQMC::new(1);
         let handle = qmc.add_term(EyePlusXMatrixTerm, vec![0]);
         qmc.add_node(0, handle);
@@ -464,7 +464,7 @@ mod cluster_tests {
     }
 
     #[test]
-    fn check_simple_cluster_wrap() -> Result<(), String> {
+    fn check_simple_cluster_wrap() -> Result<(), ClusterError> {
         let mut qmc = GenericQMC::new(1);
         let handle = qmc.add_term(EyePlusXMatrixTerm, vec![0]);
         qmc.add_node(0, handle);
@@ -489,7 +489,7 @@ mod cluster_tests {
     }
 
     #[test]
-    fn check_simple_cluster_wrap_single_op() -> Result<(), String> {
+    fn check_simple_cluster_wrap_single_op() -> Result<(), ClusterError> {
         let mut qmc = GenericQMC::new(1);
         let handle = qmc.add_term(EyePlusXMatrixTerm, vec![0]);
         qmc.add_node(0, handle);
@@ -592,7 +592,7 @@ mod cluster_tests {
     }
 
     #[test]
-    fn check_simple_twobody_cluster() -> Result<(), String> {
+    fn check_simple_twobody_cluster() -> Result<(), ClusterError> {
         let mut qmc = GenericQMC::new(2);
         let handle = qmc.add_term(EyeEyePlusXXMatrixTerm, vec![0, 1]);
         qmc.add_node(0, handle);
@@ -615,7 +615,7 @@ mod cluster_tests {
     }
 
     #[test]
-    fn check_simple_twobody_cluster_wrap_single_op_worm() -> Result<(), String> {
+    fn check_simple_twobody_cluster_wrap_single_op_worm() -> Result<(), ClusterError> {
         let mut qmc = GenericQMC::new(2);
         let handle = qmc.add_term(EyeEyePlusXXMatrixTerm, vec![0, 1]);
         qmc.add_node(0, handle);
@@ -707,7 +707,7 @@ mod cluster_tests {
     }
 
     #[test]
-    fn check_simple_twobody_cluster_wrap_single_op_ising_cluster() -> Result<(), String> {
+    fn check_simple_twobody_cluster_wrap_single_op_ising_cluster() -> Result<(), ClusterError> {
         let mut qmc = GenericQMC::new(2);
         let handle = qmc.add_term(EyeEyePlusZZMatrixTerm, vec![0, 1]);
         qmc.add_node(0, handle);
@@ -726,7 +726,7 @@ mod cluster_tests {
     }
 
     #[test]
-    fn check_staggered_twobody_cluster() -> Result<(), String> {
+    fn check_staggered_twobody_cluster() -> Result<(), ClusterError> {
         let mut qmc = GenericQMC::new(3);
         let handle_a = qmc.add_term(EyeEyePlusZZMatrixTerm, vec![0, 1]);
         let handle_b = qmc.add_term(EyeEyePlusZZMatrixTerm, vec![1, 2]);

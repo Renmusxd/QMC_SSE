@@ -3,6 +3,7 @@ use crate::traits::graph_traits::{GraphNode, LinkedGraphNode, TimeSlicedGraph};
 use crate::traits::graph_weights::GraphWeight;
 use rand::Rng;
 use std::hash::Hash;
+use thiserror::Error;
 
 /// A cluster updater propagates changes through worldlines to expand a cluster.
 /// This encompasses loop updates as well as Wolf style clusters. Upon visiting a nodes and changing
@@ -30,7 +31,7 @@ where
 
     /// Run a "cluster update". This typically involves choosing a starting
     /// node and leg at random then calling `cluster_update_starting_from_timeslice`.
-    fn cluster_update<R>(&mut self, rng: &mut R) -> Result<bool, String>
+    fn cluster_update<R>(&mut self, rng: &mut R) -> Result<bool, ClusterError>
     where
         R: Rng;
 
@@ -44,7 +45,7 @@ where
         relative_index: usize,
         new_value: Self::DOFType,
         rng: &mut R,
-    ) -> Result<bool, String>
+    ) -> Result<bool, ClusterError>
     where
         R: Rng,
     {
@@ -55,7 +56,7 @@ where
         // We have to flip the spin to get started
         let node = self
             .get_node(timeslice)
-            .ok_or("Timeslice does not contain node.".to_string())?;
+            .ok_or(ClusterError::TimesliceMissingNode)?;
         let val = cluster.push_cluster_leg(Leg::new(node, direction, relative_index), new_value);
         let leg_changes = self.output_changes_for_spin_flip_with_default_state(
             node,
@@ -408,4 +409,12 @@ where
     fn get_iterator(self) -> impl IntoIterator<Item = (DirectionEnum, usize, DOF)> {
         self
     }
+}
+
+/// Error types for cluster building.
+#[derive(Error, Debug, Copy, Clone)]
+pub enum ClusterError {
+    /// An error for a timeslice missing a node.
+    #[error("the cluster starting timeslice does not contain a node")]
+    TimesliceMissingNode
 }

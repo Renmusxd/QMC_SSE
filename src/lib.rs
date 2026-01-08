@@ -56,7 +56,6 @@
 //!  ```rust
 //! use qmc::qmc::*;
 //! # use qmc::terms::tfim::TFIMTerm;
-//!
 //! let system_size = 5;
 //! let mut qmc = GenericQMC::<bool, _>::new(system_size);
 //! # let gamma = 1.0;
@@ -73,10 +72,8 @@
 //!  ```rust
 //!  # use qmc::qmc::*;
 //!  use qmc::terms::tfim::TFIMTerm;
-//!
 //!  # let system_size = 5;
 //!  # let mut qmc = GenericQMC::<bool, _>::new(system_size);
-//!
 //!  let gamma = 1.0;
 //!  let bond_j = 1.0;
 //!  for i in 0..system_size {
@@ -94,12 +91,10 @@
 //!  ```rust
 //!  # use qmc::qmc::*;
 //!  # use qmc::terms::tfim::TFIMTerm;
-//! use qmc::traits::diagonal_update::DiagonalUpdate;
+//!  use qmc::traits::diagonal_update::DiagonalUpdate;
 //!  use rand::{SeedableRng, prelude::SmallRng};
-//!
 //!  # let system_size = 5;
 //!  # let mut qmc = GenericQMC::<bool, _>::new(system_size);
-//!
 //!  # let gamma = 1.0;
 //!  # let bond_j = 1.0;
 //!  # for i in 0..system_size {
@@ -123,10 +118,8 @@
 //!  # use qmc::traits::diagonal_update::DiagonalUpdate;
 //!  use qmc::traits::naive_flip_update::NaiveFlipUpdater;
 //!  # use rand::{SeedableRng, prelude::SmallRng};
-//!
 //!  # let system_size = 5;
 //!  # let mut qmc = GenericQMC::<bool, _>::new(system_size);
-//!
 //!  # let gamma = 1.0;
 //!  # let bond_j = 1.0;
 //!  # for i in 0..system_size {
