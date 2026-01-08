@@ -82,36 +82,7 @@ where
     where
         F: Fn(&mut [Self::DOFType], &mut [Self::DOFType]),
     {
-        if let Some(node) = self.time_slices[*timeslice].as_mut() {
-            let inputs = &mut node.input_state;
-            let outputs = &mut node.output_state;
-            f(inputs, outputs);
-
-            // Add to flippable list if now flippable.
-            let matrix_data = &self.all_term_data[node.represents_term.matrix_data_entry];
-            let input = DOF::index_dimension_slice(&node.input_state);
-            let output = DOF::index_dimension_slice(&node.output_state);
-            let n_flippable_outputs = matrix_data
-                .get_number_of_equal_weight_outputs_for_input_distinct_from_output(input, output);
-            if n_flippable_outputs > 0 {
-                if node.index_of_entry_into_flippable_list.is_none() {
-                    let index_to_insert = self.list_of_nodes_with_flippable_outputs.len();
-                    self.list_of_nodes_with_flippable_outputs.push(*timeslice);
-                    node.index_of_entry_into_flippable_list = Some(index_to_insert);
-                }
-            } else if let Some(index_to_remove) =
-                node.index_of_entry_into_flippable_list.as_ref().copied()
-            {
-                node.index_of_entry_into_flippable_list = None;
-                Self::handle_flippable_removal(
-                    index_to_remove,
-                    &mut self.list_of_nodes_with_flippable_outputs,
-                    &mut self.time_slices,
-                );
-            }
-        };
-
-        self.time_slices[*timeslice].as_ref()
+        self.modify_input_and_output_for_node_at_timeslice(*timeslice, f)
     }
 }
 

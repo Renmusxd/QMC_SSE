@@ -113,13 +113,13 @@ pub trait GraphNode {
     fn get_input_state(&self) -> &[Self::DOFType];
 
     /// Get the input state as a mutable reference.
-    fn get_input_state_mut(&mut self) -> &mut [Self::DOFType];
+    // fn get_input_state_mut(&mut self) -> &mut [Self::DOFType];
 
     /// Get the output state.
     fn get_output_state(&self) -> &[Self::DOFType];
 
     /// Get the output state as a mutable reference.
-    fn get_output_state_mut(&mut self) -> &mut [Self::DOFType];
+    // fn get_output_state_mut(&mut self) -> &mut [Self::DOFType];
 
     /// Return an iterator over indices and input/output DOF refs for that index.
     fn iterate_over_indices_and_states(
@@ -127,9 +127,9 @@ pub trait GraphNode {
     ) -> impl IntoIterator<Item = (&Self::DOFIndex, &Self::DOFType, &Self::DOFType)>;
 
     /// Return an iterator over indices and mutable input/output DOF refs for that index.
-    fn iterate_over_indices_and_states_mut(
-        &mut self,
-    ) -> impl IntoIterator<Item = (&Self::DOFIndex, &mut Self::DOFType, &mut Self::DOFType)>;
+    // fn iterate_over_indices_and_states_mut(
+    //     &mut self,
+    // ) -> impl IntoIterator<Item = (&Self::DOFIndex, &mut Self::DOFType, &mut Self::DOFType)>;
 
     /// Get the relative index of an absolute index if it is in the node.
     fn get_relative_variable_index(&self, index: &Self::DOFIndex) -> Option<usize>;

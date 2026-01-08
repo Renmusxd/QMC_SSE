@@ -27,14 +27,14 @@ fn main() {
     let estimated_timeslices = (beta * qmc.get_possible_terms().len() as f64 * 1.25) as usize;
 
     // Diagonal therm
-    let diagonal_therm = 1024;
+    let diagonal_therm = 128;
     for _ in 0..diagonal_therm {
         qmc.maintain_maximum_filling_fraction(0.75, estimated_timeslices);
         qmc.diagonal_update(beta, &mut rng);
     }
 
     // Thermalization with off-diagonals.
-    let full_therm = 128;
+    let full_therm = 1024;
     for _ in 0..full_therm {
         qmc.maintain_maximum_filling_fraction(0.75, estimated_timeslices);
         qmc.diagonal_update(beta, &mut rng);

@@ -183,6 +183,8 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
             previous_node_index_for_variable: context.prev_node_slice,
             next_node_index_for_variable: context.next_node_slice,
             timeslice,
+            // Starts diagonal.
+            num_offdiagonal_indices: 0,
             // Handled by .insert_node call.
             index_of_entry_in_node_list_for_term: usize::MAX,
             index_of_entry_into_flippable_list: None,
@@ -309,6 +311,48 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
         None
     }
 
+    /// Modify the input and output states for a node, perform required bookkeeping.
+    pub fn modify_input_and_output_for_node_at_timeslice<F>(
+        &mut self,
+        timeslice: usize,
+        f: F,
+    ) -> Option<&DoublyLinkedNode<DOF>>
+    where
+        F: Fn(&mut [DOF], &mut [DOF]),
+    {
+        if let Some(node) = self.time_slices[timeslice].as_mut() {
+            let inputs = &mut node.input_state;
+            let outputs = &mut node.output_state;
+            f(inputs, outputs);
+            node.num_offdiagonal_indices = inputs.iter().zip(outputs.iter()).filter(|(a,b)| !a.eq(b)).count();
+
+            // Add to flippable list if now flippable.
+            let matrix_data = &self.all_term_data[node.represents_term.matrix_data_entry];
+            let input = DOF::index_dimension_slice(&node.input_state);
+            let output = DOF::index_dimension_slice(&node.output_state);
+            let n_flippable_outputs = matrix_data
+                .get_number_of_equal_weight_outputs_for_input_distinct_from_output(input, output);
+            if n_flippable_outputs > 0 {
+                if node.index_of_entry_into_flippable_list.is_none() {
+                    let index_to_insert = self.list_of_nodes_with_flippable_outputs.len();
+                    self.list_of_nodes_with_flippable_outputs.push(timeslice);
+                    node.index_of_entry_into_flippable_list = Some(index_to_insert);
+                }
+            } else if let Some(index_to_remove) =
+                node.index_of_entry_into_flippable_list.as_ref().copied()
+            {
+                node.index_of_entry_into_flippable_list = None;
+                Self::handle_flippable_removal(
+                    index_to_remove,
+                    &mut self.list_of_nodes_with_flippable_outputs,
+                    &mut self.time_slices,
+                );
+            }
+        };
+
+        self.time_slices[timeslice].as_ref()
+    }
+
     /// For debugging purposes, print out the worldlines and operators.
     pub fn print_worldlines(&self) {
         let mut worldline = vec!["|"; self.initial_state.len()];
@@ -333,6 +377,16 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
 
     /// For debugging purposes, throw an error if an obvious inconsistency exists on `node` at `timeslice`.
     pub fn check_node_consistency(&self, timeslice: usize, node: &DoublyLinkedNode<DOF>) -> bool {
+        // Check if diagonal
+        assert_eq!(node.input_state.iter()
+            .zip(node.output_state.iter())
+            .filter(|(input,output)| -> bool {
+                !input.eq(output)
+            }).count(), 
+            node.num_offdiagonal_indices, 
+            "Number of offdiagonal indices does not match."
+        );
+
         // First check the links for each dof.
         for (rel_index, global_index) in node
             .represents_term
@@ -491,6 +545,9 @@ pub struct DoublyLinkedNode<DOF: DOFTypeTrait> {
     previous_node_index_for_variable: Vec<Option<Link<usize>>>,
     next_node_index_for_variable: Vec<Option<Link<usize>>>,
     timeslice: usize,
+
+    // Track if node is diagonal (0) or off-diagonal(>0)
+    num_offdiagonal_indices: usize,
 
     // Keep track of where this is being tracked.
     index_of_entry_in_node_list_for_term: usize,

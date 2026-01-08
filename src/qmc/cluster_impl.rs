@@ -98,12 +98,10 @@ where
             self.initial_state[absolute_index] = value;
         }
         for (timeslice, data) in timeline_changes {
-            let node = self.time_slices[timeslice]
-                .as_mut()
-                .expect("There should be a node here since it was in the cluster.");
-
-            node.input_state = data.input;
-            node.output_state = data.output;
+            self.modify_input_and_output_for_node_at_timeslice(timeslice, |input, output| {
+                input.copy_from_slice(&data.input);
+                output.copy_from_slice(&data.output);
+            });
         }
     }
 }
