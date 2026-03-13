@@ -7,6 +7,8 @@ use num_traits::{Signed, Zero};
 use rand::Rng;
 use std::fmt::Debug;
 use std::ops::{Add, Neg};
+use crate::qmc::resummed_flip_impl::{DOFFlippable, MatrixTermFlippableOrDiagonal, MatrixTermType};
+use crate::terms::multibody_tfim::MultibodyTFIMTerm;
 
 /// The collection of allowed terms in the Hamiltonian, ZZ or X, with associated strengths.
 #[derive(Debug, Clone, Copy)]
@@ -189,6 +191,15 @@ impl<T> TermClusterExpander<bool> for TFIMTerm<T> {
         ];
 
         ising_array.into_iter().take(num_to_select)
+    }
+}
+
+impl<T> MatrixTermFlippableOrDiagonal for TFIMTerm<T> {
+    fn get_term_type(&self) -> MatrixTermType {
+        match self {
+            TFIMTerm::ZZ(_) => MatrixTermType::MultiSiteDiagonal,
+            TFIMTerm::X(_) => MatrixTermType::SingleSiteFlippable
+        }
     }
 }
 

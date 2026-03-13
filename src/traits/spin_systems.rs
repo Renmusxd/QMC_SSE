@@ -1,6 +1,7 @@
 use crate::traits::graph_traits::DOFTypeTrait;
 use rand::Rng;
 use rand::distr::Uniform;
+use crate::qmc::resummed_flip_impl::DOFFlippable;
 
 impl DOFTypeTrait for bool {
     fn local_dimension() -> usize {
@@ -41,6 +42,12 @@ impl DOFTypeTrait for bool {
         R: Rng,
     {
         !*self
+    }
+}
+
+impl DOFFlippable for bool {
+    fn flip(&self) -> Self {
+        !self
     }
 }
 
@@ -93,5 +100,11 @@ impl<const N: usize> DOFTypeTrait for Spin<N> {
             (self.value + choice) % N
         };
         Self { value: choice }
+    }
+}
+
+impl DOFFlippable for Spin<2> {
+    fn flip(&self) -> Self {
+        Self::new(1 - self.value)
     }
 }

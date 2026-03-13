@@ -23,6 +23,8 @@ pub mod navigator_impl;
 pub mod thermal_update_impl;
 /// Functions of adding weights to the graph nodes.
 pub mod weight_impl;
+/// Sum out diagonal operators and flip the effective offdiagonal weights.
+pub mod resummed_flip_impl;
 
 /// Matrix terms are addressed using the MatrixTermHandle type.
 pub type MatrixTermHandle = usize;
@@ -311,6 +313,7 @@ impl<DOF: DOFTypeTrait, TermData: MatrixTermData<f64>, GI> GenericQMC<DOF, TermD
 
     /// For debugging purposes, print out the worldlines and operators.
     pub fn print_worldlines(&self) {
+        println!("World lines:");
         let mut worldline = vec!["|"; self.initial_state.len()];
         for (t, slice) in self.time_slices.iter().enumerate() {
             if let Some(node) = slice {

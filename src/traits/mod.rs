@@ -15,6 +15,8 @@ pub mod naive_flip_update;
 pub mod spin_systems;
 /// A simple thermal update on wordlines without any operators.
 pub mod thermal_update;
+/// A flip update which abstracts away flip locations for faster updates.
+pub mod resummed_flip_update;
 
 /// A weight change using 64-bit floats, with special enum variants for 0 or 1.0.
 #[derive(Clone, Copy, Debug)]

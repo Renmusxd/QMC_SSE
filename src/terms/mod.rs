@@ -4,3 +4,5 @@ pub mod generic;
 pub mod ring_exchange;
 /// ZZ and X terms.
 pub mod tfim;
+/// Z, ZZ, ZZZ, ... and X terms.
+pub mod multibody_tfim;

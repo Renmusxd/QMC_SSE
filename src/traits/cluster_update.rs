@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use crate::traits::WeightChange;
 use crate::traits::graph_traits::{GraphNode, LinkedGraphNode, TimeSlicedGraph};
 use crate::traits::graph_weights::GraphWeight;
@@ -11,7 +12,7 @@ use std::hash::Hash;
 /// The net cluster update is accepted with a metropolis step using the net weight change.
 pub trait ClusterUpdater: TimeSlicedGraph + GraphWeight
 where
-    Self::Node: LinkedGraphNode + HasTimeslice<Self::TimesliceIndex>,
+    Self::Node: LinkedGraphNode + HasTimeslice<Timeslice=Self::TimesliceIndex>,
     Self::TimesliceIndex: Hash + Eq,
     Self::Node: 'static,
     Self::DOFType: 'static,
@@ -245,12 +246,15 @@ where
 }
 
 /// Indicates that this node keeps track of the timeslice it has been assigned to.
-pub trait HasTimeslice<T> {
+pub trait HasTimeslice {
+    /// The type of the timeslice.
+    type Timeslice;
     /// Return the timeslice for the node.
-    fn get_timeslice(&self) -> &T;
+    fn get_timeslice(&self) -> &Self::Timeslice;
 }
 
 /// Following a leg can either:
+#[derive(Debug)]
 pub enum FollowResult<T> {
     /// Cross the periodic boundary (such as large T back to 0).
     WrapBoundary(T),
@@ -321,6 +325,20 @@ pub enum Leg<N> {
         /// The relative index of the leg
         relative_index: usize,
     },
+}
+
+impl<N: HasTimeslice> Debug for Leg<N> where N::Timeslice: Debug {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let (s, n, i) = match self {
+            Self::Input { node, relative_index } => {
+                ("Input", node, relative_index)
+            }
+            Self::Output {node, relative_index} => {
+                ("Output", node, relative_index)
+            }
+        };
+        f.write_fmt(format_args!("Leg[{s}, t={:?}, index={i}]", n.get_timeslice()))
+    }
 }
 
 impl<N> Leg<N> {

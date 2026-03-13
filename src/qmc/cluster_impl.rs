@@ -107,10 +107,21 @@ where
     }
 }
 
-impl<T> HasTimeslice<usize> for DoublyLinkedNode<T>
+impl<T> HasTimeslice for DoublyLinkedNode<T>
 where
     T: DOFTypeTrait,
 {
+    type Timeslice = usize;
+    fn get_timeslice(&self) -> &usize {
+        &self.timeslice
+    }
+}
+
+impl<T> HasTimeslice for &DoublyLinkedNode<T>
+where
+    T: DOFTypeTrait,
+{
+    type Timeslice = usize;
     fn get_timeslice(&self) -> &usize {
         &self.timeslice
     }

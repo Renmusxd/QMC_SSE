@@ -86,11 +86,15 @@ where
     {
         // Only in debug.
         debug_assert!(self.check_graph_consistency());
-        let weight_before_update = self.get_total_graph_weight_from_nodes();
-        debug_assert!(
-            weight_before_update > f64::EPSILON,
-            "Weight going into flip is zero"
-        );
+        let mut weight_before_update = 0f64;
+        #[cfg(debug_assertions)]
+        {
+            weight_before_update = self.get_total_graph_weight_from_nodes();
+            debug_assert!(
+                weight_before_update > f64::EPSILON,
+                "Weight going into flip is zero"
+            );
+        }
 
         let node = self
             .get_node(&start_pos)
